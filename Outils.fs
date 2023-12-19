@@ -21,7 +21,10 @@ let ExtractCodeSections bytecode transform =
             let sectionInput = Seq.item (1 + (idx * 4)) bytecode 
             let sectionOutput = Seq.item (2 + (idx * 4)) bytecode 
             let sectionSize = int <| ReadImmediate bytecode (3 + (idx * 4)) 2 System.BitConverter.ToInt16
-            let codeSection = Seq.skip (1 + count * 4 + offset) bytecode
+            let codeSection = 
+                bytecode 
+                |> Seq.skip (1 + count * 4 + offset)  
+                |> Seq.take sectionSize
             let value = transform idx sectionInput sectionOutput sectionSize offset codeSection
             ExtractCodeSectionsPartial bytecode (offset + sectionSize) (idx + 1) (value::acc)
     Loop transform bytecode 0 0 []
