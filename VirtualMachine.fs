@@ -2,7 +2,7 @@
 module VirtualMachine
 open System.Collections.Generic
 open Instructions
-open Outils
+open Utils
 
 type FunctionSection = {
     Index : int16
@@ -41,6 +41,14 @@ let RunProgram (bytecode:byte seq) (state:State) =
             state with Stack = newStack 
                        ProgramCounter = state.ProgramCounter + 1
         }
+    
+    let ApplyUnary state op =
+        let a::tail = state.Stack
+        let newStack = (op a)::tail
+        {
+            state with Stack = newStack 
+                       ProgramCounter = state.ProgramCounter + 1
+        }
 
     let JumpToPointer state conditional offset = 
         let condition = if conditional then state.Stack.Head <> 0 else true 
@@ -75,6 +83,17 @@ let RunProgram (bytecode:byte seq) (state:State) =
             | Instruction.EXP -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state pown))
             | Instruction.SUB -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( - )))
             | Instruction.MOD -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( % )))
+            
+            | Instruction.LHS -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( <<< )))
+            | Instruction.RHS -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( >>> )))
+            | Instruction.AND -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( &&& )))
+            | Instruction.OR  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( ||| )))
+            | Instruction.XOR -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( ^^^ )))
+            | Instruction.NEG -> AssertStackRequirement state 1 (fun () -> Loop machineCode (ApplyUnary  state ( ~~~ )))
+
+            | Instruction.GT  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( fun a b -> if a > b then 1 else 0)))
+            | Instruction.LT  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( fun a b -> if a < b then 1 else 0)))
+            | Instruction.EQ  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( fun a b -> if a = b then 1 else 0)))
 
             | Instruction.JUMP ->  
                 let target = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)

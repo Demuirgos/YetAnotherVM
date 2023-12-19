@@ -1,4 +1,4 @@
-module Outils
+module Utils
 open Instructions
 
 let ReadImmediate (bytecode: byte seq) start len converter = 
@@ -31,22 +31,26 @@ let ExtractCodeSections bytecode transform =
 
 let BytecodeToMnemonic bytecode = 
     let rec handleSection (sectionCode : byte seq) idx acc = 
-        if idx >= Seq.length sectionCode then System.String.Join("\n", (List.rev acc))
+        if idx >= Seq.length sectionCode then System.String.Join("\n\t", (List.rev acc))
         else 
             let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item idx sectionCode)) 
             let immediateCount = int (Instructions.GetMetadata instruction).ImmediateArgument
             let argument = 
                 (sectionCode |> Seq.skip (idx + 1) |> Seq.take immediateCount |> Seq.rev |> Seq.toArray)
                 |>  if immediateCount = 2 
-                    then System.BitConverter.ToInt16 >> int >> Some
+                    then System.BitConverter.ToInt16 >> int >> (sprintf "%x")
                     else if immediateCount = 4 
-                         then System.BitConverter.ToInt32 >> Some
-                         else ignore >> fun _ -> None
+                         then System.BitConverter.ToInt32 >> (sprintf "%x")
+                         else fun _ -> System.String.Empty
 
-            handleSection sectionCode (idx + 1 + immediateCount) ((sprintf "%A: %A" instruction argument)::acc)
+            handleSection sectionCode (idx + 1 + immediateCount) ((sprintf "%A\t%s" instruction argument)::acc)
     let functions = ExtractCodeSections bytecode (fun index inputCount outputCount size ptr code -> 
             index, handleSection code 0 []
         ) 
-    Map functions
+    
+    System.String.Join("\n", 
+        functions
+        |> List.map (fun (index, body) -> sprintf "%d:\t%s" index body)
+    )
     
 let MnemonicToBytecode bytecodeStr = failwith "not implemented"

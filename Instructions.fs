@@ -26,6 +26,18 @@ type Instruction =
     | SWAP   = 17
 
     | FAIL   = 18
+    
+    | NEG    = 19
+    | AND    = 20
+    | OR     = 21
+    | XOR    = 22
+
+    | LHS    = 23
+    | RHS    = 24
+    
+    | GT     = 25
+    | LT     = 26
+    | EQ     = 27
 
 type Metadata = {
     StackArgument : byte
@@ -42,7 +54,16 @@ let GetMetadata opcode =
     | Instruction.DIV
     | Instruction.SUB
     | Instruction.EXP
+    | Instruction.GT
+    | Instruction.LT
+    | Instruction.GT
+    | Instruction.AND
+    | Instruction.OR
+    | Instruction.XOR
+    | Instruction.LHS
+    | Instruction.RHS
     | Instruction.MOD   -> Metadata.from 2uy 0uy 1uy
+    | Instruction.NEG   -> Metadata.from 1uy 0uy 1uy
     | Instruction.RETURN -> Metadata.from 1uy 0uy 0uy
     | Instruction.STOP  -> Metadata.from 0uy 0uy 0uy
     | Instruction.JUMP  -> Metadata.from 0uy 2uy 0uy
