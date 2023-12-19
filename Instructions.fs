@@ -25,6 +25,8 @@ type Instruction =
     | DUP    = 16
     | SWAP   = 17
 
+    | FAIL   = 18
+
 type Metadata = {
     StackArgument : byte
     ImmediateArgument : byte
@@ -51,4 +53,5 @@ let GetMetadata opcode =
     | Instruction.LOAD  -> Metadata.from 0uy 2uy 1uy
     | Instruction.DUP   -> Metadata.from 1uy 2uy 1uy
     | Instruction.SWAP   -> Metadata.from 1uy 2uy 1uy
+    | Instruction.FAIL   -> Metadata.from 0uy 0uy 0uy
     | _ as instr -> printfn "%A" instr; failwith "invalid opcode"

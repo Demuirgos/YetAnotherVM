@@ -143,6 +143,7 @@ let RunProgram (bytecode:byte seq) (state:State) =
                                         Stack = List.rev newStack
                         }
                 )
+            | Instruction.FAIL -> Error "exception throw"
             | _ -> Error "Undefined opcode"
 
     let functions = 
