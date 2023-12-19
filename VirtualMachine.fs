@@ -2,6 +2,7 @@
 module VirtualMachine
 open System.Collections.Generic
 open Instructions
+open Outils
 
 type FunctionSection = {
     Index : int16
@@ -33,17 +34,6 @@ let RunProgram (bytecode:byte seq) (state:State) =
         then cont()
         else Error "Stack underflow"   
 
-    let ReadImmediate (bytecode: byte seq) start len converter = 
-        let byteChunk = 
-            bytecode
-            |> Seq.skip start 
-            |> Seq.take len 
-            |> Seq.toArray
-        if System.BitConverter.IsLittleEndian then 
-            Array.rev byteChunk
-        else byteChunk
-        |> converter
-
     let ApplyBinary state op =
         let a::b::tail = state.Stack
         let newStack = (op a b)::tail
@@ -60,28 +50,11 @@ let RunProgram (bytecode:byte seq) (state:State) =
                         ProgramCounter = destination + 1
         }
 
-    let ExtractCodeSections bytecode = 
-        let count = int <| Seq.item 0 bytecode 
-        let rec ReadSectionSIzes bytecode idx acc ptr=
-            if idx >= count then List.rev acc 
-            else 
-                let sectionInput = Seq.item (1 + (idx * 4)) bytecode 
-                let sectionOutput = Seq.item (2 + (idx * 4)) bytecode 
-                let sectionSize = ReadImmediate bytecode (3 + (idx * 4)) 2 System.BitConverter.ToInt16
-                ReadSectionSIzes bytecode (idx + 1) ({ 
-                    Index = int16 idx
-                    Input = sectionInput
-                    Output = sectionInput
-                    StartIndex = ptr
-                }::acc) (ptr + int sectionSize)  
-        ReadSectionSIzes bytecode 0 [] 0
-
     let rec Loop (machineCode:byte seq) state = 
         if state.ProgramCounter >= Seq.length machineCode 
         then Error "Bytecode has no terminating opcode" 
         else 
             let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item state.ProgramCounter machineCode)) 
-            printfn "%A; %A; %A" machineCode state instruction
             match instruction with 
             | Instruction.PUSH -> 
                 let argument = ReadImmediate machineCode (state.ProgramCounter + 1) 4 (System.BitConverter.ToInt32)
@@ -159,17 +132,11 @@ let RunProgram (bytecode:byte seq) (state:State) =
                     }
                 )
             | Instruction.SWAP -> 
-                (* handle case when target index is at the start or the end of the stack*)
                 let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
                 AssertStackRequirement state targetIndex (fun () -> 
-                    let splits = 
-                        List.splitAt (state.Stack.Length - targetIndex) state.Stack
-                        ||> (fun a b -> (List.rev b), (List.rev a))
-                    let newStack = 
-                        match splits with 
-                        | (h::suffix, t::prefix) -> (t::suffix@h::prefix)
-                        | (h::suffix, []) -> ((List.last suffix)::(List.take (suffix.Length - 1) suffix)@[h])
-                        | ([], stack) -> stack
+                    let newStack =
+                        state.Stack 
+                        |> List.mapi (fun i v -> if i = 0 then state.Stack[targetIndex] else state.Stack.Head) 
 
                     Loop machineCode {
                             state with  ProgramCounter = state.ProgramCounter + 3
@@ -178,7 +145,14 @@ let RunProgram (bytecode:byte seq) (state:State) =
                 )
             | _ -> Error "Undefined opcode"
 
-    let functions = ExtractCodeSections bytecode
+    let functions = 
+        ExtractCodeSections bytecode (fun index inputCount outputCount size ptr code -> { 
+            Index = int16 index
+            Input = inputCount
+            Output = outputCount
+            StartIndex = ptr
+        }) 
+
     Loop (Seq.skip (1 + 4 * List.length functions) bytecode) { 
         state with  Functions = functions
     }
