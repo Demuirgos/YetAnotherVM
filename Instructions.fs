@@ -17,3 +17,5 @@ type Instruction =
     | RETF   = 13
     | STORE  = 14
     | LOAD   = 15
+    | DUP    = 16
+    | SWAP   = 17

@@ -16,6 +16,7 @@ type State = {
         CallStack : (int16 * int * int) list
         Functions : FunctionSection list
         FunctionPointer : int16
+        Memory : byte[]
     }
     with static member Empty = {
             Stack = []
@@ -23,6 +24,7 @@ type State = {
             CallStack = []
             FunctionPointer = 0s
             Functions = []
+            Memory = Array.create 2048 0uy
         }
 
 let RunProgram (bytecode:byte seq) (state:State) = 
@@ -131,7 +133,49 @@ let RunProgram (bytecode:byte seq) (state:State) =
                                    FunctionPointer = functionIndex
                     }
                 )
+            | Instruction.STORE -> 
+                let targetIndex = ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                let value::rest = state.Stack
+                System.Array.Copy(System.BitConverter.GetBytes(value), 0, state.Memory, int targetIndex, 4)
+                AssertStackRequirement state 1 (fun () -> 
+                    Loop machineCode {
+                        state with  ProgramCounter = state.ProgramCounter + 3
+                                    Stack = rest
+                    }
+                )
+            | Instruction.LOAD -> 
+                let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                let value = System.BitConverter.ToInt32(state.Memory[targetIndex..(targetIndex + 4)])
+                Loop machineCode {
+                    state with  ProgramCounter = state.ProgramCounter + 3
+                                Stack = value::state.Stack
+                }
+            | Instruction.DUP -> 
+                let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                AssertStackRequirement state targetIndex (fun () -> 
+                    Loop machineCode {
+                        state with  ProgramCounter = state.ProgramCounter + 3
+                                    Stack = state.Stack[state.Stack.Length - targetIndex]::state.Stack
+                    }
+                )
+            | Instruction.SWAP -> 
+                (* handle case when target index is at the start or the end of the stack*)
+                let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                AssertStackRequirement state targetIndex (fun () -> 
+                    let splits = 
+                        List.splitAt (state.Stack.Length - targetIndex) state.Stack
+                        ||> (fun a b -> (List.rev b), (List.rev a))
+                    let newStack = 
+                        match splits with 
+                        | (h::suffix, t::prefix) -> (t::suffix@h::prefix)
+                        | (h::suffix, []) -> ((List.last suffix)::(List.take (suffix.Length - 1) suffix)@[h])
+                        | ([], stack) -> stack
 
+                    Loop machineCode {
+                            state with  ProgramCounter = state.ProgramCounter + 3
+                                        Stack = List.rev newStack
+                        }
+                )
             | _ -> Error "Undefined opcode"
 
     let functions = ExtractCodeSections bytecode
