@@ -60,6 +60,7 @@ let GetMetadata opcode =
     | Instruction.AND
     | Instruction.OR
     | Instruction.XOR
+    | Instruction.EQ
     | Instruction.LHS
     | Instruction.RHS
     | Instruction.MOD   -> Metadata.from 2uy 0uy 1uy

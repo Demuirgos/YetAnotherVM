@@ -97,12 +97,11 @@ let RunProgram (bytecode:byte seq) (state:State) =
 
             | Instruction.JUMP ->  
                 let target = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
-                Loop machineCode (JumpToPointer state true target) 
+                Loop machineCode (JumpToPointer state false target) 
             | Instruction.CJUMP ->  
                 AssertStackRequirement state 1 (fun () -> 
-                    let condition::_ = state.Stack
                     let target = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
-                    Loop machineCode (JumpToPointer state (condition <> 0) target))
+                    Loop machineCode (JumpToPointer state true target))
             | Instruction.STOP -> Ok <| None
             | Instruction.CALL -> 
                 let targetIndex = ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
@@ -147,7 +146,7 @@ let RunProgram (bytecode:byte seq) (state:State) =
                 AssertStackRequirement state targetIndex (fun () -> 
                     Loop machineCode {
                         state with  ProgramCounter = state.ProgramCounter + 3
-                                    Stack = state.Stack[state.Stack.Length - targetIndex]::state.Stack
+                                    Stack = state.Stack[targetIndex]::state.Stack
                     }
                 )
             | Instruction.SWAP -> 
@@ -155,11 +154,11 @@ let RunProgram (bytecode:byte seq) (state:State) =
                 AssertStackRequirement state targetIndex (fun () -> 
                     let newStack =
                         state.Stack 
-                        |> List.mapi (fun i v -> if i = 0 then state.Stack[targetIndex] else state.Stack.Head) 
+                        |> List.mapi (fun i v -> if i = 0 then state.Stack[targetIndex] else if i = targetIndex then state.Stack.Head else v) 
 
                     Loop machineCode {
                             state with  ProgramCounter = state.ProgramCounter + 3
-                                        Stack = List.rev newStack
+                                        Stack = newStack
                         }
                 )
             | Instruction.FAIL -> Error "exception throw"
