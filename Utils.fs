@@ -45,12 +45,10 @@ let BytecodeToMnemonic bytecode =
 
             handleSection sectionCode (idx + 1 + immediateCount) ((sprintf "%A\t%s" instruction argument)::acc)
     let functions = ExtractCodeSections bytecode (fun index inputCount outputCount size ptr code -> 
-            index, handleSection code 0 []
+            index, (inputCount, outputCount), handleSection code 0 []
         ) 
     
     System.String.Join("\n", 
         functions
-        |> List.map (fun (index, body) -> sprintf "%d:\t%s" index body)
+        |> List.map (fun (index, (ins, outs), body) -> sprintf "%d:%d, %d\t%s" index ins outs body)
     )
-    
-let MnemonicToBytecode bytecodeStr = failwith "not implemented"
