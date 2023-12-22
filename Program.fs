@@ -1,5 +1,11 @@
 ﻿open Utils
+open parsec.Parsec
+open Language
 
+let inputStr = "if(0) { var nice = 23; } " 
+let result = parsec.Parsec.Parser.run (fromStr inputStr) ParseProgram
+printf "%A" result
+(*
 let bytecode : byte list = [
     02uy; 
     00uy; 00uy; 00uy; 28uy; 
@@ -35,8 +41,9 @@ let sumUpTo n =
         10uy; 255uy; 209uy;
     ] 
 
-printfn "%A" (BytecodeToMnemonic (sumUpTo 23uy))
+printfn "%A" (BytecodeToMnemonic (bytecode))
 
 let result = VirtualMachine.RunProgram (sumUpTo 23uy) VirtualMachine.State.Empty
 
 printf "%A" result
+*)
