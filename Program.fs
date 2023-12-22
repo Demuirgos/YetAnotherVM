@@ -2,10 +2,6 @@
 open parsec.Parsec
 open Language
 
-let inputStr = "fun function(x,y) { var nice = 23 * 3;nice <- 23; }" 
-let result = parsec.Parsec.Parser.run (fromStr inputStr) ParseProgram
-printf "%A" result
-(*
 let bytecode : byte list = [
     02uy; 
     00uy; 00uy; 00uy; 28uy; 
@@ -46,4 +42,3 @@ printfn "%A" (BytecodeToMnemonic (bytecode))
 let result = VirtualMachine.RunProgram (sumUpTo 23uy) VirtualMachine.State.Empty
 
 printf "%A" result
-*)
