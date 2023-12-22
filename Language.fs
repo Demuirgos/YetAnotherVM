@@ -11,13 +11,14 @@ module Language
         | Call of string * Grammar list  
     and Grammar = 
         | VariableDecl   of string * Grammar option
+        | VariableAssing of string * Grammar 
         | FunctionDecl   of string * (string list) * Grammar list
         | IfStatement    of Grammar * Grammar list * Grammar list option
         | WhileStatement of Grammar * Grammar list
         | ExpressionNode of Expression
     (*
         var name = value;
-
+        name <- newValue
         fun name(arg1, arg2...) {
             // instructions
             return 0 | empty;
@@ -81,6 +82,11 @@ module Language
                 let pEq = expect '='
                 return! pVar >>. pSpaces >>. pName .>> pSpaces .>>. option(pEq >>. pSpaces >>. (parseExpression true true)) .>> expect ';'
             } <?> "VarDeclStmt" |>> (fun (a, b) -> (fromArrToStr a,b) |> VariableDecl)
+        and parseVariableAssignment = 
+            Parser {
+                let pArrow = allOf ['<'; '-']
+                return! pName .>> pSpaces .>> pArrow .>> pSpaces .>>. (parseExpression true true) .>> expect ';'
+            } <?> "VarAssignment" |>> (fun (a, b) -> (fromArrToStr a,b) |> VariableAssing)
         and parseIfElse = 
             Parser {
                 let pIf = allOf ['i'; 'f']
@@ -98,13 +104,13 @@ module Language
         and parseFunctionDec = 
             Parser {
                 let pFun = allOf ['f'; 'u'; 'n']
-                let pArgs = between pLeftParen (many 0 pName) pRightParen
+                let pArgs = between pLeftParen (separate1By pName (expect ',')) pRightParen
                 return! pFun >>. pSpaces >>. pName .>> pSpaces .>>. pArgs 
                         .>> pSpaces .>> pLeftCurly 
-                        .>>. many 0 parseInstruction 
+                        .>> pSpaces .>>. many 0 parseInstruction 
                         .>> pSpaces .>> pRightCurly             
             } <?> "VarDeclStmt" |>> (fun ((name, argsList), body) -> (fromArrToStr name, List.map fromArrToStr argsList, body) |> FunctionDecl)
         
         and parseInstruction = 
-            parseVariableDecl <|> parseIfElse <|> parseWhile
+            parseFunctionDec <|> parseVariableAssignment <|> parseVariableDecl <|> parseIfElse <|> parseWhile
         many 0 parseInstruction

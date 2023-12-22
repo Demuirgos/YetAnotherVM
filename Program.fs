@@ -2,7 +2,7 @@
 open parsec.Parsec
 open Language
 
-let inputStr = "if(0) { var nice = 23; } " 
+let inputStr = "fun function(x,y) { var nice = 23 * 3;nice <- 23; }" 
 let result = parsec.Parsec.Parser.run (fromStr inputStr) ParseProgram
 printf "%A" result
 (*
