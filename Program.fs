@@ -21,6 +21,35 @@ let inputStr =
         }
         return result;
     """
+
+let sumUpTo n = 
+    [
+        01uy; 00uy; 00uy; 00uy; 63uy;
+        00uy; 00uy; 00uy; 00uy; n; 
+        14uy; 00uy; 00uy; 
+        00uy; 00uy; 00uy; 00uy; 0uy; 
+        14uy; 00uy; 04uy;
+        15uy; 00uy; 00uy;
+        00uy; 00uy; 00uy; 00uy; 00uy;
+        26uy; 
+        11uy; 00uy; 04uy;
+        15uy; 00uy; 04uy;
+        08uy;
+        00uy; 00uy; 00uy; 00uy; 01uy;
+        15uy; 00uy; 00uy;
+        16uy; 00uy; 00uy;
+        17uy; 00uy; 02uy;
+        17uy; 00uy; 01uy;
+        05uy;
+        14uy; 00uy; 00uy;
+        15uy; 00uy; 04uy;
+        02uy;
+        14uy; 00uy; 04uy;
+        10uy; 255uy; 209uy;
+    ] 
+
+printfn "%A" (BytecodeToMnemonic (sumUpTo 23uy))
+
 let bytecode = 
     match run (fromStr inputStr) ParseProgram with
     | Success (result, _) -> printfn "%A" result; GenerateHeader (EmitBytecode result (Dictionary<_,_>(), Dictionary<_,_>()))
