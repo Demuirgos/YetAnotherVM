@@ -1,15 +1,35 @@
 
 module VirtualMachine
-open System.Collections.Generic
+open System
 open Instructions
 open Utils
 
 type FunctionSection = {
-    Index : int16
-    StartIndex : int
-    Input : byte
-    Output : byte
-}
+        Index : int16
+        StartIndex : int
+        Input : byte
+        Output : byte
+    } 
+    with static member GenerateHeader ([<ParamArray>]sections : byte list array) = 
+            let sectionsCount = byte <| Array.length sections
+            let sectionIOandSize (section: byte list) = 
+                let inputCount = section[0]
+                let outputCount = section[1]
+                let size = 
+                    let sizeBytes = int16((List.length section) - 2) |> System.BitConverter.GetBytes
+                    if System.BitConverter.IsLittleEndian then 
+                        Array.rev sizeBytes 
+                    else sizeBytes
+                [inputCount; outputCount; yield! size] |> Seq.ofList
+
+            let sectionBody (section: byte list) = List.skip 2 section
+
+
+            seq {
+                yield sectionsCount
+                yield! sections |> Seq.map sectionIOandSize |> Seq.concat
+                yield! sections |> Seq.map sectionBody |> List.concat 
+            }
 
 type State = {
         Stack : int list

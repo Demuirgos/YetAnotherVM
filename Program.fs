@@ -1,49 +1,31 @@
 ﻿open Utils
 open parsec.Parsec
-open Language
+open Language.Parser
+open Instructions
+open VirtualMachine
 
-let inputStr = "fun function(x,y) { var nice = 23 * 3;nice <- 23; }" 
+let bytecode = 
+    let result = 
+        FunctionSection.GenerateHeader 
+            (Build {
+                Signature (00uy, 00uy)
+                Push 23
+                Push 03
+                Mul
+                Pop 
+            })
+    printfn "%A" result; result
+
+let inputStr = 
+    """
+        var test = 69; 
+        fun function(x,y) 
+        { 
+            if (true) {
+                var nice = 23 * 3;
+                nice <- 23; 
+            }
+        }
+    """
 let result = parsec.Parsec.Parser.run (fromStr inputStr) ParseProgram
 printf "%A" result
-(*
-let bytecode : byte list = [
-    02uy; 
-    00uy; 00uy; 00uy; 28uy; 
-    01uy; 01uy; 00uy; 15uy; 
-    
-    00uy; 00uy; 00uy; 00uy; 01uy; 16uy; 00uy; 01uy; 14uy; 00uy; 00uy; 11uy; 00uy; 05uy; 00uy; 00uy; 00uy; 00uy; 07uy; 00uy; 00uy; 00uy; 00uy; 23uy; 12uy; 00uy; 01uy; 08uy 
-    01uy; 15uy; 00uy; 00uy; 00uy; 00uy; 00uy; 00uy; 07uy; 17uy; 00uy; 01uy; 01uy; 18uy; 13uy;
-    ]
-
-let sumUpTo n = 
-    [
-        01uy; 00uy; 00uy; 00uy; 63uy;
-        00uy; 00uy; 00uy; 00uy; n; 
-        14uy; 00uy; 00uy; 
-        00uy; 00uy; 00uy; 00uy; 0uy; 
-        14uy; 00uy; 04uy;
-        15uy; 00uy; 00uy;
-        00uy; 00uy; 00uy; 00uy; 00uy;
-        26uy; 
-        11uy; 00uy; 04uy;
-        15uy; 00uy; 04uy;
-        08uy;
-        00uy; 00uy; 00uy; 00uy; 01uy;
-        15uy; 00uy; 00uy;
-        16uy; 00uy; 00uy;
-        17uy; 00uy; 02uy;
-        17uy; 00uy; 01uy;
-        05uy;
-        14uy; 00uy; 00uy;
-        15uy; 00uy; 04uy;
-        02uy;
-        14uy; 00uy; 04uy;
-        10uy; 255uy; 209uy;
-    ] 
-
-printfn "%A" (BytecodeToMnemonic (bytecode))
-
-let result = VirtualMachine.RunProgram (sumUpTo 23uy) VirtualMachine.State.Empty
-
-printf "%A" result
-*)

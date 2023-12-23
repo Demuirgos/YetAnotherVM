@@ -1,5 +1,5 @@
 
-module Language
+module Language.Parser
 
     open System
     open parsec.Parsec.Primitives
@@ -16,24 +16,6 @@ module Language
         | IfStatement    of Grammar * Grammar list * Grammar list option
         | WhileStatement of Grammar * Grammar list
         | ExpressionNode of Expression
-    (*
-        var name = value;
-        name <- newValue
-        fun name(arg1, arg2...) {
-            // instructions
-            return 0 | empty;
-        }
-        
-        if(condition) {
-            // instructions;
-        } else {
-
-        }
-
-        while(condition) {
-            // instructions;
-        }
-    *) 
 
     let ParseProgram = 
         let digits = ['0'..'9'] 
@@ -57,6 +39,12 @@ module Language
                 Parser {
                     return! many 1 (anyOf digits)
                 } <?> "Value" |>> fun v -> (Int32.Parse (fromArrToStr v)) |> Single 
+            let rec parseBoolean = 
+                Parser {
+                    let pTrue = allOf (List.ofSeq "true")
+                    let pFalse = allOf (List.ofSeq "false")
+                    return! pTrue <|> pFalse
+                } <?> "Boolean" |>> fun v -> (if Boolean.Parse (fromArrToStr v) then 1 else 0) |> Single 
             and parseFunctionCall = 
                 Parser {
                     let pName = many 1 (anyOf chars)
@@ -69,7 +57,7 @@ module Language
                     return! (parseExpression false true) .>> pSpaces .>>. pOperator .>> pSpaces .>>. (parseExpression true true) 
                 } <?> "BinOp" |>> (fun ((lhs, op), rhs) -> (lhs, op, rhs) |> Binary)
             
-            let mutable poolParser = [parseValue]
+            let mutable poolParser = [parseValue; parseBoolean]
             if includeBin then 
                 poolParser <-  parseBinary::poolParser
             if includeFun then 
@@ -92,14 +80,14 @@ module Language
                 let pIf = allOf ['i'; 'f']
                 let pElse = allOf ['e'; 'l'; 's'; 'e']
                 return! pIf   .>> pSpaces >>. pLeftParen .>> pSpaces >>. (parseExpression true true) .>> pSpaces .>> pRightParen 
-                              .>> pSpaces .>> pLeftCurly .>> pSpaces .>>. many 0 parseInstruction .>> pSpaces .>> pRightCurly .>> pSpaces
+                              .>> pSpaces .>> pLeftCurly .>> pSpaces .>>. separate1By parseInstruction pSpaces .>> pSpaces .>> pRightCurly .>> pSpaces
                     .>>. option (pElse >>. pSpaces >>. pLeftCurly >>. pSpaces >>. many 0 parseInstruction .>> pSpaces .>> pRightCurly)
             } <?> "IfElseStmt" |>> (fun ((cond, happyPath), sadPath) -> (cond, happyPath, sadPath) |> IfStatement)
         and parseWhile = 
             Parser {
                 let pWhile = allOf ['w'; 'h'; 'i'; 'l'; 'e']
                 return! pWhile .>> pSpaces >>. pLeftParen .>> pSpaces >>. (parseExpression true true) .>> pSpaces .>> pRightParen 
-                               .>> pSpaces .>> pLeftCurly .>> pSpaces .>>. many 0 parseInstruction .>> pSpaces .>> pRightCurly 
+                               .>> pSpaces .>> pLeftCurly .>> pSpaces .>>. separate1By parseInstruction pSpaces .>> pSpaces .>> pRightCurly 
             } <?> "WhileStmt" |>> (fun (cond, body)-> (cond, body) |> WhileStatement)
         and parseFunctionDec = 
             Parser {
@@ -107,10 +95,10 @@ module Language
                 let pArgs = between pLeftParen (separate1By pName (expect ',')) pRightParen
                 return! pFun >>. pSpaces >>. pName .>> pSpaces .>>. pArgs 
                         .>> pSpaces .>> pLeftCurly 
-                        .>> pSpaces .>>. many 0 parseInstruction 
+                        .>> pSpaces .>>. separate1By parseInstruction pSpaces
                         .>> pSpaces .>> pRightCurly             
             } <?> "VarDeclStmt" |>> (fun ((name, argsList), body) -> (fromArrToStr name, List.map fromArrToStr argsList, body) |> FunctionDecl)
         
         and parseInstruction = 
             parseFunctionDec <|> parseVariableAssignment <|> parseVariableDecl <|> parseIfElse <|> parseWhile
-        many 0 parseInstruction
+        pSpaces >>. separate1By parseInstruction pSpaces
