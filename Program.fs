@@ -48,6 +48,13 @@ let sumUpTo n =
         10uy; 255uy; 209uy;
     ] 
 
+let bytecodeB = 
+    Build {
+        Push 23
+        Push 03 
+        Mul
+    }
+
 printfn "%A" (BytecodeToMnemonic (sumUpTo 23uy))
 
 let bytecode = 
