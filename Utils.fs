@@ -12,6 +12,27 @@ let ReadImmediate (bytecode: byte seq) start len converter =
     else byteChunk
     |> converter
 
+let GenerateHeader (sections : byte list seq) = 
+    let sectionsCount = byte <| Seq.length sections
+    let sectionIOandSize (section: byte list) = 
+        let inputCount = section[0]
+        let outputCount = section[1]
+        let size = 
+            let sizeBytes = int16((List.length section) - 2) |> System.BitConverter.GetBytes
+            if System.BitConverter.IsLittleEndian then 
+                Array.rev sizeBytes 
+            else sizeBytes
+        [inputCount; outputCount; yield! size] |> Seq.ofList
+
+    let sectionBody (section: byte list) = List.skip 2 section
+
+
+    seq {
+        yield sectionsCount
+        yield! sections |> Seq.map sectionIOandSize |> Seq.concat
+        yield! sections |> Seq.map sectionBody |> List.concat 
+    }
+
 let ExtractCodeSections bytecode transform = 
     let rec Loop transform bytecode offset idx acc = 
         let ExtractCodeSectionsPartial = Loop transform
@@ -42,7 +63,6 @@ let BytecodeToMnemonic bytecode =
                     else if immediateCount = 4 
                          then System.BitConverter.ToInt32 >> (sprintf "%x")
                          else fun _ -> System.String.Empty
-
             handleSection sectionCode (idx + 1 + immediateCount) ((sprintf "%A\t%s" instruction argument)::acc)
     let functions = ExtractCodeSections bytecode (fun index inputCount outputCount size ptr code -> 
             index, (inputCount, outputCount), handleSection code 0 []

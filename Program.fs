@@ -1,31 +1,31 @@
 ﻿open Utils
-open parsec.Parsec
 open Language.Parser
 open Instructions
 open VirtualMachine
-
-let bytecode = 
-    let result = 
-        FunctionSection.GenerateHeader 
-            (Build {
-                Signature (00uy, 00uy)
-                Push 23
-                Push 03
-                Mul
-                Pop 
-            })
-    printfn "%A" result; result
-
+open parsec.Parsec
+open Language.Compiler
+open System.Collections.Generic
 let inputStr = 
     """
-        var test = 69; 
-        fun function(x,y) 
-        { 
-            if (true) {
-                var nice = 23 * 3;
-                nice <- 23; 
-            }
+        fun add(a,b) {
+            a <- a + b;
+            return a;
         }
+        var condition = true;
+        var result = 0;
+        while(condition) {
+            result <- add(result,1);
+            if(result = 23) {
+                condition <- false;
+            }    
+        }
+        return result;
     """
-let result = parsec.Parsec.Parser.run (fromStr inputStr) ParseProgram
-printf "%A" result
+let bytecode = 
+    match run (fromStr inputStr) ParseProgram with
+    | Success (result, _) -> printfn "%A" result; GenerateHeader (EmitBytecode result (Dictionary<_,_>(), Dictionary<_,_>()))
+    | _ -> []
+    |> List.ofSeq
+    |> fun b -> printfn "%A" b; printfn "%s" (BytecodeToMnemonic b); b
+let result = VirtualMachine.RunProgram (State.Empty bytecode)
+printfn "%A" result

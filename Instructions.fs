@@ -26,12 +26,18 @@ type Instruction =
     
     | STORE  = 14
     | LOAD   = 15
+    | DSTORE = 29
+    | DLOAD  = 30
+
+
+
     | DUP    = 16
     | SWAP   = 17
 
     | FAIL   = 18
     
     | NEG    = 19
+    | NOT    = 28
     | AND    = 20
     | OR     = 21
     | XOR    = 22
@@ -70,6 +76,7 @@ let GetMetadata opcode =
     | Instruction.LHS
     | Instruction.RHS
     | Instruction.MOD   -> Metadata.from 2uy 0uy 1uy
+    | Instruction.NOT
     | Instruction.NEG   -> Metadata.from 1uy 0uy 1uy
     | Instruction.RETURN -> Metadata.from 1uy 0uy 0uy
     | Instruction.STOP  -> Metadata.from 0uy 0uy 0uy
@@ -79,6 +86,8 @@ let GetMetadata opcode =
     | Instruction.RETF  -> Metadata.from 0uy 0uy 0uy
     | Instruction.STORE -> Metadata.from 1uy 2uy 0uy
     | Instruction.LOAD  -> Metadata.from 0uy 2uy 1uy
+    | Instruction.DSTORE -> Metadata.from 2uy 0uy 0uy
+    | Instruction.DLOAD  -> Metadata.from 1uy 0uy 1uy
     | Instruction.DUP   -> Metadata.from 1uy 2uy 1uy
     | Instruction.SWAP   -> Metadata.from 1uy 2uy 1uy
     | Instruction.FAIL   -> Metadata.from 0uy 0uy 0uy
@@ -96,6 +105,11 @@ let Op opcode (arg: int) =
         ]
     | _  -> [byte opcode;]
 
+type BuilderState = {
+    Bytecode : byte list
+    Deferred : byte list list
+}
+
 type BytecodeBuilder() =
     let getBytes(argument:Int) =
         match argument with 
@@ -107,69 +121,88 @@ type BytecodeBuilder() =
 
     member x.Return(value) = value
     member x.Zero() = []
-    member _.Yield _ = []
+    member _.Yield _ = { Bytecode = [];  Deferred = [] }
 
 
     [<CustomOperation("Signature")>]
-    member x.Signature (source: byte list, (inputCount:byte, outputCount:byte)) = [inputCount; outputCount]
+    member x.Signature (source: BuilderState, (inputCount:byte, outputCount:byte)) = { source with Bytecode = [inputCount; outputCount] }
     
     [<CustomOperation("Push")>]
-    member x.Push (source: byte list, argument:int32) = source@[00uy; yield! getBytes(Int32 argument)]
+    member x.Push (source: BuilderState, argument:int32) = { source with Bytecode = source.Bytecode@[00uy; yield! getBytes(Int32 argument)]}
     
     [<CustomOperation("Pop")>]
-    member _.Pop(source: byte list) = source@[01uy]
+    member _.Pop(source: BuilderState) = { source with Bytecode = source.Bytecode@[01uy] }
     [<CustomOperation("Add")>]
-    member _.Add(source: byte list) = source@[02uy]
+    member _.Add(source: BuilderState) = { source with Bytecode = source.Bytecode@[02uy] }
     [<CustomOperation("Mul")>]
-    member _.Mul(source: byte list) = source@[03uy]
+    member _.Mul(source: BuilderState) = { source with Bytecode = source.Bytecode@[03uy] }
     [<CustomOperation("Div")>]
-    member _.Div(source: byte list) = source@[04uy]
+    member _.Div(source: BuilderState) = { source with Bytecode = source.Bytecode@[04uy] }
     [<CustomOperation("Sub")>]
-    member _.Sub(source: byte list) = source@[05uy]
+    member _.Sub(source: BuilderState) = { source with Bytecode = source.Bytecode@[05uy] }
     [<CustomOperation("Exp")>]
-    member _.Exp(source: byte list) = source@[06uy]
+    member _.Exp(source: BuilderState) = { source with Bytecode = source.Bytecode@[06uy] }
     [<CustomOperation("Mod")>]
-    member _.Mod(source: byte list) = source@[07uy]
+    member _.Mod(source: BuilderState) = { source with Bytecode = source.Bytecode@[07uy] }
     [<CustomOperation("Return")>]
-    member _.Return(source: byte list) = source@[08uy]
+    member _.Return(source: BuilderState) = { source with Bytecode = source.Bytecode@[08uy] }
     [<CustomOperation("Stop")>]
-    member _.Stop(source: byte list) = source@[09uy]
+    member _.Stop(source: BuilderState) = { source with Bytecode = source.Bytecode@[09uy] }
     [<CustomOperation("Fail")>]
-    member _.Fail(source: byte list) = source@[18uy]
+    member _.Fail(source: BuilderState) = { source with Bytecode = source.Bytecode@[18uy] }
     [<CustomOperation("Neg")>]
-    member _.Neg(source: byte list) = source@[19uy]
+    member _.Neg(source: BuilderState) = { source with Bytecode = source.Bytecode@[19uy] }
     [<CustomOperation("And")>]
-    member _.And(source: byte list) = source@[20uy]
+    member _.And(source: BuilderState) = { source with Bytecode = source.Bytecode@[20uy] }
     [<CustomOperation("Or")>]
-    member _.Or(source: byte list) = source@[21uy]
+    member _.Or(source: BuilderState) = { source with Bytecode = source.Bytecode@[21uy] }
+    
+    [<CustomOperation("Not")>]
+    member _.Not(source: BuilderState) = { source with Bytecode = source.Bytecode@[28uy] }
+
     [<CustomOperation("Xor")>]
-    member _.Xor(source: byte list) = source@[22uy]
+    member _.Xor(source: BuilderState) = { source with Bytecode = source.Bytecode@[22uy] }
     [<CustomOperation("Lhs")>]
-    member _.Lhs(source: byte list) = source@[23uy]
+    member _.Lhs(source: BuilderState) = { source with Bytecode = source.Bytecode@[23uy] }
     [<CustomOperation("Rhs")>]
-    member _.Rhs(source: byte list) = source@[24uy]
+    member _.Rhs(source: BuilderState) = { source with Bytecode = source.Bytecode@[24uy] }
     [<CustomOperation("Gt")>]
-    member _.Gt(source: byte list) = source@[25uy]
+    member _.Gt(source: BuilderState) = { source with Bytecode = source.Bytecode@[25uy] }
     [<CustomOperation("Lt")>]
-    member _.Lt(source: byte list) = source@[26uy]
+    member _.Lt(source: BuilderState) = { source with Bytecode = source.Bytecode@[26uy] }
     [<CustomOperation("Eq")>]
-    member _.Eq(source: byte list) = source@[27uy]
+    member _.Eq(source: BuilderState) = { source with Bytecode = source.Bytecode@[27uy] }
 
     [<CustomOperation("Dup")>]
-    member _.Dup(source: byte list, argument: int16)= source@[16uy; yield! getBytes(Int16 argument)]
+    member _.Dup(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[16uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Swap")>]
-    member _.Swap(source: byte list, argument: int16)= source@[17uy; yield! getBytes(Int16 argument)]
+    member _.Swap(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[17uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Store")>]
-    member _.Store(source: byte list, argument: int16)= source@[14uy; yield! getBytes(Int16 argument)]
+    member _.Store(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[14uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Load")>]
-    member _.Load(source: byte list, argument: int16)= source@[15uy; yield! getBytes(Int16 argument)]
+    member _.Load(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[15uy; yield! getBytes(Int16 argument)]}
+    [<CustomOperation("DStore")>]
+    member _.DStore(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[29uy]}
+    [<CustomOperation("DLoad")>]
+    member _.DLoad(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[30uy]}
     [<CustomOperation("Jump")>]
-    member _.Jump(source: byte list, argument: int16)= source@[10uy; yield! getBytes(Int16 argument)]
+    member _.Jump(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[10uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Cjump")>]
-    member _.Cjump(source: byte list, argument: int16)= source@[11uy; yield! getBytes(Int16 argument)]
+    member _.Cjump(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[11uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Call")>]
-    member _.Call(source: byte list, argument: int16)= source@[12uy; yield! getBytes(Int16 argument)]
+    member _.Call(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[12uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Retf")>]
-    member _.Retf(source: byte list, argument: int16)= source@[13uy; yield! getBytes(Int16 argument)]
+    member _.Retf(source: BuilderState)= { source with Bytecode = source.Bytecode@[13uy]}
+
+    [<CustomOperation("Inline")>]
+    member _.Inline(source: BuilderState, bytecode: byte list)= { source with Bytecode = source.Bytecode@bytecode }
+    [<CustomOperation("Op")>]
+    member _.Op(source: BuilderState, opcode: Instruction)= { source with Bytecode = source.Bytecode@[byte opcode] }
+    [<CustomOperation("Defer")>]
+    member _.Defer(source: BuilderState, functionCode: byte list)= { source with Deferred = functionCode::source.Deferred }
+
+
+
+
  
  let Build = BytecodeBuilder()
