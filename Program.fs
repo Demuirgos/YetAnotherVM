@@ -1,15 +1,26 @@
 ﻿open Utils
+open Language.Parser
+open Instructions
+open VirtualMachine
 open parsec.Parsec
-open Language
-
-let bytecode : byte list = [
-    02uy; 
-    00uy; 00uy; 00uy; 28uy; 
-    01uy; 01uy; 00uy; 15uy; 
-    
-    00uy; 00uy; 00uy; 00uy; 01uy; 16uy; 00uy; 01uy; 14uy; 00uy; 00uy; 11uy; 00uy; 05uy; 00uy; 00uy; 00uy; 00uy; 07uy; 00uy; 00uy; 00uy; 00uy; 23uy; 12uy; 00uy; 01uy; 08uy 
-    01uy; 15uy; 00uy; 00uy; 00uy; 00uy; 00uy; 00uy; 07uy; 17uy; 00uy; 01uy; 01uy; 18uy; 13uy;
-    ]
+open Language.Compiler
+open System.Collections.Generic
+let inputStr = 
+    """
+        fun add(a,b) {
+            a <- a + b;
+            return a;
+        }
+        var condition = true;
+        var result = 0;
+        while(condition) {
+            result <- add(result,1);
+            if(result = 23) {
+                condition <- false;
+            }    
+        }
+        return result;
+    """
 
 let sumUpTo n = 
     [
@@ -37,8 +48,13 @@ let sumUpTo n =
         10uy; 255uy; 209uy;
     ] 
 
-printfn "%A" (BytecodeToMnemonic (bytecode))
+printfn "%A" (BytecodeToMnemonic (sumUpTo 23uy))
 
-let result = VirtualMachine.RunProgram (sumUpTo 23uy) VirtualMachine.State.Empty
-
-printf "%A" result
+let bytecode = 
+    match run (fromStr inputStr) ParseProgram with
+    | Success (result, _) -> printfn "%A" result; GenerateHeader (EmitBytecode result (Dictionary<_,_>(), Dictionary<_,_>()))
+    | _ -> []
+    |> List.ofSeq
+    |> fun b -> printfn "%A" b; printfn "%s" (BytecodeToMnemonic b); b
+let result = VirtualMachine.RunProgram (State.Empty bytecode)
+printfn "%A" result

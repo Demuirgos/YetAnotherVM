@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="Instructions.fs" />
     <Compile Include="Language.fs" />
+    <Compile Include="Compiler.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="VirtualMachine.fs" />
     <Compile Include="Program.fs" />

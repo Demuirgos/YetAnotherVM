@@ -1,15 +1,15 @@
 
 module VirtualMachine
-open System.Collections.Generic
+open System
 open Instructions
 open Utils
 
 type FunctionSection = {
-    Index : int16
-    StartIndex : int
-    Input : byte
-    Output : byte
-}
+        Index : int16
+        StartIndex : int
+        Input : byte
+        Output : byte
+    } 
 
 type State = {
         Stack : int list
@@ -18,21 +18,25 @@ type State = {
         Functions : FunctionSection list
         FunctionPointer : int16
         Memory : byte[]
+        Bytecode : byte list
     }
-    with static member Empty = {
+    with static member Empty bytecode = {
             Stack = []
             ProgramCounter = 0
             CallStack = []
             FunctionPointer = 0s
             Functions = []
             Memory = Array.create 2048 0uy
+            Bytecode = bytecode
         }
 
-let RunProgram (bytecode:byte seq) (state:State) = 
+let RunProgram (state:State) = 
     let AssertStackRequirement state n cont = 
         if n <= List.length state.Stack 
         then cont()
-        else Error "Stack underflow"   
+        else 
+            let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item (state.ProgramCounter + 1 + int(state.Bytecode[0]) * 4) state.Bytecode)) 
+            Error (sprintf "Stack underflow %d, opcode: %A" state.ProgramCounter instruction)
 
     let ApplyBinary state op =
         let a::b::tail = state.Stack
@@ -60,7 +64,7 @@ let RunProgram (bytecode:byte seq) (state:State) =
 
     let rec Loop (machineCode:byte seq) state = 
         if state.ProgramCounter >= Seq.length machineCode 
-        then Error "Bytecode has no terminating opcode" 
+        then printf"%A" state; Error "Bytecode has no terminating opcode" 
         else 
             let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item state.ProgramCounter machineCode)) 
             match instruction with 
@@ -89,7 +93,9 @@ let RunProgram (bytecode:byte seq) (state:State) =
             | Instruction.AND -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( &&& )))
             | Instruction.OR  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( ||| )))
             | Instruction.XOR -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( ^^^ )))
+            
             | Instruction.NEG -> AssertStackRequirement state 1 (fun () -> Loop machineCode (ApplyUnary  state ( ~~~ )))
+            | Instruction.NOT  -> AssertStackRequirement state 1 (fun () -> Loop machineCode (ApplyUnary state ( fun a -> if a <> 0 then 0 else 1)))
 
             | Instruction.GT  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( fun a b -> if a > b then 1 else 0)))
             | Instruction.LT  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( fun a b -> if a < b then 1 else 0)))
@@ -116,8 +122,8 @@ let RunProgram (bytecode:byte seq) (state:State) =
                 )
             | Instruction.RETF -> 
                 let (functionIndex, programCounter, stackSize)::rest = state.CallStack
-                let currentSection = state.Functions[int functionIndex]
-                AssertStackRequirement state (stackSize + int currentSection.Output) (fun () -> 
+                let currentSection = state.Functions[int state.FunctionPointer]
+                AssertStackRequirement state (stackSize - int currentSection.Input + int currentSection.Output) (fun () -> 
                     Loop machineCode {
                         state with ProgramCounter = programCounter + 3
                                    CallStack = rest
@@ -165,13 +171,13 @@ let RunProgram (bytecode:byte seq) (state:State) =
             | _ -> Error "Undefined opcode"
 
     let functions = 
-        ExtractCodeSections bytecode (fun index inputCount outputCount size ptr code -> { 
+        ExtractCodeSections state.Bytecode (fun index inputCount outputCount size ptr code -> { 
             Index = int16 index
             Input = inputCount
             Output = outputCount
             StartIndex = ptr
         }) 
 
-    Loop (Seq.skip (1 + 4 * List.length functions) bytecode) { 
+    Loop (Seq.skip (1 + 4 * List.length functions) state.Bytecode) { 
         state with  Functions = functions
     }
