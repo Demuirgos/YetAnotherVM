@@ -42,6 +42,10 @@ module Language.Compiler
                             Build {
                                 Stop
                             }
+                        | Throw (_) -> 
+                            Build {
+                                Fail
+                            }
                         | FunctionDecl(name, args, hasReturnValue, body) as funDec -> 
                             callTable[name] <- callTable.Count
                             Build {
@@ -144,8 +148,8 @@ module Language.Compiler
                                     | '|' -> Instruction.OR
                                     | '%' -> Instruction.MOD
                                     | '^' -> Instruction.EXP
-                                    | '<' -> Instruction.GT
-                                    | '>' -> Instruction.LT
+                                    | '<' -> Instruction.LT
+                                    | '>' -> Instruction.GT
                                     | '=' -> Instruction.EQ
                                 Build {
                                     Inline (handleSection rhs |> _.Bytecode)

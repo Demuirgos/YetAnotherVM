@@ -8,17 +8,21 @@ open System.Collections.Generic
 let inputStr = 
     """
         fun isPrime(number) {
-            if((number % 2) = 0) {
-                return number = 2;
+            if( number < 2) {
+                return false;
             } else {
-                var index = 3;
-                while(index < number) {
-                    if((number % index) = 0) {
-                        return false;
-                    } 
-                    index <- index + 2;
+                if((number % 2) = 0) {
+                    return number = 2;
+                } else {
+                    var index = 3;
+                    while((index * index) < number) {
+                        if((number % index) = 0) {
+                            return false;
+                        } 
+                        index <- index + 2;
+                    }
+                    return true;
                 }
-                return true;
             }
         }
         var input = read();

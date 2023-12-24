@@ -122,7 +122,7 @@ module Language.Parser
             } <?> "HaltStatement" |>> fun _ -> Halt
         and parseThrow = 
             Parser {
-                let parseString = between (expect '"') (many 0 (anyOf chars)) (expect '"')
+                let parseString = between (expect '"') (many 0 (anyOf (' '::chars))) (expect '"')
                 return! allOf (List.ofSeq "throw") >>. pSpaces >>. parseString .>> expect ';'
             } <?> "ThrowStatement" |>> (fromArrToStr >> Throw)
         and parseReturn = 

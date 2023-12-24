@@ -69,6 +69,7 @@ let RunProgram (state:State) =
         then printf"%A" state; Error "Bytecode has no terminating opcode" 
         else 
             let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item state.ProgramCounter machineCode)) 
+            printfn "%d: %A" state.ProgramCounter instruction
             match instruction with 
             | Instruction.PUSH -> 
                 let argument = ReadImmediate machineCode (state.ProgramCounter + 1) 4 (System.BitConverter.ToInt32)
