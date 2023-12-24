@@ -96,7 +96,7 @@ module Language.Compiler
                             Build {
                                 Inline cond
                                 Not
-                                Cjump (int16 <| List.length body)
+                                Cjump (3s + (int16 <| List.length body))
                                 Inline body
                                 Jump (int16 <| List.length elseBody)
                                 Inline elseBody
@@ -109,6 +109,10 @@ module Language.Compiler
                             }
                         | ExpressionNode(expr) -> 
                             match expr with
+                            | Paren expr -> 
+                                Build {
+                                    Inline (handleSection expr).Bytecode
+                                } 
                             | Single value -> 
                                 Build {
                                     Push value
@@ -138,8 +142,8 @@ module Language.Compiler
                                     | '>' -> Instruction.LT
                                     | '=' -> Instruction.EQ
                                 Build {
-                                    Inline (handleSection lhs |> _.Bytecode) 
                                     Inline (handleSection rhs |> _.Bytecode)
+                                    Inline (handleSection lhs |> _.Bytecode) 
                                     Op instruction 
                                 }
                             | Unary(op, rhs) -> 

@@ -7,19 +7,21 @@ open Language.Compiler
 open System.Collections.Generic
 let inputStr = 
     """
-        fun add(a,b) {
-            a <- a + b;
-            return a;
+        fun isPrime(number) {
+            if((number % 2) = 0) {
+                return number = 2;
+            } else {
+                var index = 3;
+                while((index * index) < number) {
+                    if((number % 3) = 0) {
+                        return false;
+                    } 
+                    index <- index + 2;
+                }
+                return true;
+            }
         }
-        var condition = true;
-        var result = 0;
-        while(condition) {
-            result <- add(result,1);
-            if(result = 23) {
-                condition <- false;
-            }    
-        }
-        return result;
+        return isPrime(24);
     """
 
 let sumUpTo n = 
@@ -54,8 +56,6 @@ let bytecodeB =
         Push 03 
         Mul
     }
-
-printfn "%A" (BytecodeToMnemonic (sumUpTo 23uy))
 
 let bytecode = 
     match run (fromStr inputStr) ParseProgram with

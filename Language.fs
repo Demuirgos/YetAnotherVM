@@ -10,7 +10,8 @@ module Language.Parser
         | Single of int
         | Binary of Grammar * char * Grammar
         | Unary of char * Grammar
-        | Call of string * Grammar list  
+        | Call of string * Grammar list
+        | Paren of Grammar  
     and Grammar = 
         | VariableDecl   of string * Grammar option
         | VariableAssign of string * Grammar 
@@ -64,8 +65,11 @@ module Language.Parser
                     let pOperator = anyOf operators
                     return! (parseExpression false true) .>> pSpaces .>>. pOperator .>> pSpaces .>>. (parseExpression true true) 
                 } <?> "BinOp" |>> (fun ((lhs, op), rhs) -> (lhs, op, rhs) |> Binary)
-            
-            let mutable poolParser = [parseValue; parseBoolean; parseVar]
+            and parseParen = 
+                Parser {
+                    return! pLeftParen >>. parseExpression true true .>> pRightParen 
+                } <?> "BinOp" |>> Paren
+            let mutable poolParser = [parseParen; parseValue; parseBoolean; parseVar]
             if includeBin then 
                 poolParser <-  parseBinary::poolParser
             if includeFun then 
@@ -93,7 +97,7 @@ module Language.Parser
                 let pElse = allOf ['e'; 'l'; 's'; 'e']
                 return! pIf   .>> pSpaces >>. pLeftParen .>> pSpaces >>. (parseExpression true true) .>> pSpaces .>> pRightParen 
                               .>> pSpaces .>> pLeftCurly .>> pSpaces .>>. separate1By (parseInstruction true) pSpaces .>> pSpaces .>> pRightCurly .>> pSpaces
-                    .>>. option (pElse >>. pSpaces >>. pLeftCurly >>. pSpaces >>. many 0 (parseInstruction true) .>> pSpaces .>> pRightCurly)
+                    .>>. option (pElse >>. pSpaces >>. pLeftCurly >>. pSpaces >>. separate1By (parseInstruction true) pSpaces .>> pSpaces .>> pRightCurly)
             } <?> "IfElseStmt" |>> (fun ((cond, happyPath), sadPath) -> (cond, happyPath, sadPath) |> IfStatement)
         and parseWhile = 
             Parser {
