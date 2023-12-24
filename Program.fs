@@ -21,7 +21,7 @@ let inputStr =
                 return true;
             }
         }
-        return isPrime(24);
+        return isPrime(23);
     """
 
 let sumUpTo n = 
