@@ -19,6 +19,7 @@ type State = {
         FunctionPointer : int16
         Memory : byte[]
         Bytecode : byte list
+        Error : string 
     }
     with static member Empty bytecode = {
             Stack = []
@@ -28,6 +29,7 @@ type State = {
             Functions = []
             Memory = Array.create 2048 0uy
             Bytecode = bytecode
+            Error = System.String.Empty
         }
 
 let RunProgram (state:State) = 
@@ -167,6 +169,12 @@ let RunProgram (state:State) =
                                         Stack = newStack
                         }
                 )
+            | Instruction.INPUT -> 
+                let number = Int32.Parse(Console.ReadLine())
+                Loop machineCode {
+                    state with  ProgramCounter = state.ProgramCounter + 1
+                                Stack = number::state.Stack
+                }
             | Instruction.FAIL -> Error "exception throw"
             | _ -> Error "Undefined opcode"
 

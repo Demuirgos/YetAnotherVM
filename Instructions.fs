@@ -26,10 +26,6 @@ type Instruction =
     
     | STORE  = 14
     | LOAD   = 15
-    | DSTORE = 29
-    | DLOAD  = 30
-
-
 
     | DUP    = 16
     | SWAP   = 17
@@ -48,6 +44,7 @@ type Instruction =
     | GT     = 25
     | LT     = 26
     | EQ     = 27
+    | INPUT  = 30
 
 type Metadata = {
     StackArgument : byte
@@ -86,11 +83,10 @@ let GetMetadata opcode =
     | Instruction.RETF  -> Metadata.from 0uy 0uy 0uy
     | Instruction.STORE -> Metadata.from 1uy 2uy 0uy
     | Instruction.LOAD  -> Metadata.from 0uy 2uy 1uy
-    | Instruction.DSTORE -> Metadata.from 2uy 0uy 0uy
-    | Instruction.DLOAD  -> Metadata.from 1uy 0uy 1uy
     | Instruction.DUP   -> Metadata.from 1uy 2uy 1uy
-    | Instruction.SWAP   -> Metadata.from 1uy 2uy 1uy
-    | Instruction.FAIL   -> Metadata.from 0uy 0uy 0uy
+    | Instruction.SWAP  -> Metadata.from 1uy 2uy 1uy
+    | Instruction.FAIL  -> Metadata.from 0uy 0uy 0uy
+    | Instruction.INPUT -> Metadata.from 0uy 0uy 1uy
     | _ as instr -> printfn "%A" instr; failwith "invalid opcode"
 
 
@@ -119,19 +115,19 @@ type BytecodeBuilder() =
                 Array.rev
             else id
 
-    member x.Return(value) = value
-    member x.Zero() = []
+    member _.Return(value) = value
+    member _.Zero() = { Bytecode = [];  Deferred = [] }
     member _.Yield _ = { Bytecode = [];  Deferred = [] }
 
 
     [<CustomOperation("Signature")>]
     member x.Signature (source: BuilderState, (inputCount:byte, outputCount:byte)) = { source with Bytecode = [inputCount; outputCount] }
-    
     [<CustomOperation("Push")>]
     member x.Push (source: BuilderState, argument:int32) = { source with Bytecode = source.Bytecode@[00uy; yield! getBytes(Int32 argument)]}
-    
     [<CustomOperation("Pop")>]
     member _.Pop(source: BuilderState) = { source with Bytecode = source.Bytecode@[01uy] }
+    [<CustomOperation("Read")>]
+    member _.Read(source: BuilderState) = { source with Bytecode = source.Bytecode@[30uy] }
     [<CustomOperation("Add")>]
     member _.Add(source: BuilderState) = { source with Bytecode = source.Bytecode@[02uy] }
     [<CustomOperation("Mul")>]

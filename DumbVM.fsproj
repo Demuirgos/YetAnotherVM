@@ -12,6 +12,6 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="FsParsec.12.23.23.001" Version="1.0.0" />
+    <PackageReference Include="FsParsec.12.23.23.001" Version="1.0.1" />
   </ItemGroup>
 </Project>

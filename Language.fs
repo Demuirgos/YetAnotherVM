@@ -20,6 +20,7 @@ module Language.Parser
         | WhileStatement of Grammar * Grammar list
         | ExpressionNode of Expression
         | Return         of Grammar option
+        | Throw          of string
         | Halt
 
     let ParseProgram = 
@@ -57,7 +58,7 @@ module Language.Parser
             and parseFunctionCall = 
                 Parser {
                     let pName = many 1 (anyOf chars)
-                    let pArgs = between pLeftParen (separate1By (parseExpression true true) (expect ',')) pRightParen                    
+                    let pArgs = between pLeftParen (separateBy (parseExpression true true) (expect ',')) pRightParen                    
                     return! pName .>>. pArgs 
                 } <?> "FuncCall" |>> (fun (a, b) -> (fromArrToStr a,b) |> Call)
             and parseBinary = 
@@ -77,7 +78,7 @@ module Language.Parser
              
             (choice poolParser) <?> "Expression" |>>  ExpressionNode 
         and parseInstruction isDeep = 
-            let defaultParser = parseReturn <|> parseHalt <|> parseVariableAssignment <|> parseVariableDecl <|> parseIfElse <|> parseWhile
+            let defaultParser = parseThrow <|> parseReturn <|> parseHalt <|> parseVariableAssignment <|> parseVariableDecl <|> parseIfElse <|> parseWhile
             if isDeep then defaultParser 
             else parseFunctionDec <|> defaultParser 
         and parseVariableDecl = 
@@ -96,32 +97,37 @@ module Language.Parser
                 let pIf = allOf ['i'; 'f']
                 let pElse = allOf ['e'; 'l'; 's'; 'e']
                 return! pIf   .>> pSpaces >>. pLeftParen .>> pSpaces >>. (parseExpression true true) .>> pSpaces .>> pRightParen 
-                              .>> pSpaces .>> pLeftCurly .>> pSpaces .>>. separate1By (parseInstruction true) pSpaces .>> pSpaces .>> pRightCurly .>> pSpaces
-                    .>>. option (pElse >>. pSpaces >>. pLeftCurly >>. pSpaces >>. separate1By (parseInstruction true) pSpaces .>> pSpaces .>> pRightCurly)
+                              .>> pSpaces .>> pLeftCurly .>> pSpaces .>>. separateBy (parseInstruction true) pSpaces .>> pSpaces .>> pRightCurly .>> pSpaces
+                    .>>. option (pElse >>. pSpaces >>. pLeftCurly >>. pSpaces >>. separateBy (parseInstruction true) pSpaces .>> pSpaces .>> pRightCurly)
             } <?> "IfElseStmt" |>> (fun ((cond, happyPath), sadPath) -> (cond, happyPath, sadPath) |> IfStatement)
         and parseWhile = 
             Parser {
                 let pWhile = allOf ['w'; 'h'; 'i'; 'l'; 'e']
                 return! pWhile .>> pSpaces >>. pLeftParen .>> pSpaces >>. (parseExpression true true) .>> pSpaces .>> pRightParen 
-                               .>> pSpaces .>> pLeftCurly .>> pSpaces .>>. separate1By (parseInstruction true) pSpaces .>> pSpaces .>> pRightCurly 
+                               .>> pSpaces .>> pLeftCurly .>> pSpaces .>>. separateBy (parseInstruction true) pSpaces .>> pSpaces .>> pRightCurly 
             } <?> "WhileStmt" |>> (fun (cond, body)-> (cond, body) |> WhileStatement)
         and parseFunctionDec = 
             Parser {
                 let pFun = allOf ['f'; 'u'; 'n']
                 let pProc = allOf ['p'; 'r'; 'o'; 'c']
-                let pArgs = between pLeftParen (separate1By pName (expect ',')) pRightParen
+                let pArgs = between pLeftParen (separateBy pName (expect ',')) pRightParen
                 return! (pFun <|> pProc) .>> pSpaces .>>. pName .>> pSpaces .>>. pArgs 
                         .>> pSpaces .>> pLeftCurly 
-                        .>> pSpaces .>>. separate1By (parseInstruction true) pSpaces
+                        .>> pSpaces .>>. separateBy (parseInstruction true) pSpaces
                         .>> pSpaces .>> pRightCurly             
             } <?> "FunDeclStmt" |>> (fun (((keyword, name), argsList), body) -> (fromArrToStr name, List.map fromArrToStr argsList, (fromArrToStr keyword) = "fun", body) |> FunctionDecl)
         and parseHalt = 
             Parser {
                 return! allOf (List.ofSeq "halt") .>> expect ';'
             } <?> "HaltStatement" |>> fun _ -> Halt
+        and parseThrow = 
+            Parser {
+                let parseString = between (expect '"') (many 0 (anyOf chars)) (expect '"')
+                return! allOf (List.ofSeq "throw") >>. pSpaces >>. parseString .>> expect ';'
+            } <?> "ThrowStatement" |>> (fromArrToStr >> Throw)
         and parseReturn = 
             Parser {
                 return! allOf (List.ofSeq "return") >>. pSpaces >>. option (parseExpression true true) .>> expect ';'
             } <?> "ReturnStatement" |>> fun expr -> Return expr
 
-        pSpaces >>. separate1By (parseInstruction false) pSpaces
+        pSpaces >>. separateBy (parseInstruction false) pSpaces

@@ -12,8 +12,8 @@ let inputStr =
                 return number = 2;
             } else {
                 var index = 3;
-                while((index * index) < number) {
-                    if((number % 3) = 0) {
+                while(index < number) {
+                    if((number % index) = 0) {
                         return false;
                     } 
                     index <- index + 2;
@@ -21,7 +21,8 @@ let inputStr =
                 return true;
             }
         }
-        return isPrime(23);
+        var input = read();
+        return isPrime(input);
     """
 
 let sumUpTo n = 

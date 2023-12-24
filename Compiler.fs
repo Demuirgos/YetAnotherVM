@@ -123,10 +123,16 @@ module Language.Compiler
                                     Load (int16 symbolTable[mangledName])
                                 }
                             | Call(name, args) -> 
-                                Build {
-                                    Inline (args |> List.map (handleSection >> _.Bytecode) |> List.concat)
-                                    Call (int16 callTable[name])
-                                }
+                                match name with 
+                                | "read" ->
+                                    Build {
+                                        Read
+                                    }
+                                | _ -> 
+                                    Build {
+                                        Inline (args |> List.map (handleSection >> _.Bytecode) |> List.concat)
+                                        Call (int16 callTable[name])
+                                    }
                             | Binary(lhs, op, rhs) -> 
                                 let instruction = 
                                     match op with 
