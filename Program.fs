@@ -1,4 +1,4 @@
-﻿open Utils
+open Utils
 open Language.Parser
 open Instructions
 open VirtualMachine
@@ -13,7 +13,7 @@ let inputStr =
             } else {
                 var index = 3;
                 while((index * index) < number) {
-                    if((number % 3) = 0) {
+						         if((number % index) = 0) {
                         return false;
                     } 
                     index <- index + 2;
