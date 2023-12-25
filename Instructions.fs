@@ -81,11 +81,11 @@ let GetMetadata opcode =
     | Instruction.CJUMP -> Metadata.from 1uy 2uy 0uy
     | Instruction.CALL  -> Metadata.from 0uy 2uy 0uy
     | Instruction.RETF  -> Metadata.from 0uy 0uy 0uy
-    | Instruction.STORE -> Metadata.from 1uy 2uy 0uy
-    | Instruction.LOAD  -> Metadata.from 0uy 2uy 1uy
+    | Instruction.STORE -> Metadata.from 1uy 4uy 0uy
+    | Instruction.LOAD  -> Metadata.from 0uy 4uy 1uy
     | Instruction.DUP   -> Metadata.from 1uy 2uy 1uy
     | Instruction.SWAP  -> Metadata.from 1uy 2uy 1uy
-    | Instruction.FAIL  -> Metadata.from 0uy 0uy 0uy
+    | Instruction.FAIL  -> Metadata.from 0uy 4uy 0uy
     | Instruction.INPUT -> Metadata.from 0uy 0uy 1uy
     | _ as instr -> printfn "%A" instr; failwith "invalid opcode"
 
@@ -105,15 +105,15 @@ type BuilderState = {
     Bytecode : byte list
     Deferred : byte list list
 }
+let getBytes(argument:Int) =
+    match argument with 
+    | Int16 arg -> System.BitConverter.GetBytes(arg)
+    | Int32 arg -> System.BitConverter.GetBytes(arg)
+    |>  if System.BitConverter.IsLittleEndian then 
+            Array.rev
+        else id
 
 type BytecodeBuilder() =
-    let getBytes(argument:Int) =
-        match argument with 
-        | Int16 arg -> System.BitConverter.GetBytes(arg)
-        | Int32 arg -> System.BitConverter.GetBytes(arg)
-        |>  if System.BitConverter.IsLittleEndian then 
-                Array.rev
-            else id
 
     member _.Return(value) = value
     member _.Zero() = { Bytecode = [];  Deferred = [] }
@@ -145,7 +145,7 @@ type BytecodeBuilder() =
     [<CustomOperation("Stop")>]
     member _.Stop(source: BuilderState) = { source with Bytecode = source.Bytecode@[09uy] }
     [<CustomOperation("Fail")>]
-    member _.Fail(source: BuilderState) = { source with Bytecode = source.Bytecode@[18uy] }
+    member _.Fail(source: BuilderState, idx: int16, len: int16) = { source with  Bytecode = source.Bytecode@[18uy; yield! getBytes(Int16 idx); yield! getBytes(Int16 len) ]}
     [<CustomOperation("Neg")>]
     member _.Neg(source: BuilderState) = { source with Bytecode = source.Bytecode@[19uy] }
     [<CustomOperation("And")>]
@@ -174,9 +174,9 @@ type BytecodeBuilder() =
     [<CustomOperation("Swap")>]
     member _.Swap(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[17uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Store")>]
-    member _.Store(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[14uy; yield! getBytes(Int16 argument)]}
+    member _.Store(source: BuilderState, address: int16, count: int16)= { source with Bytecode = source.Bytecode@[14uy; yield! getBytes(Int16 address); yield! getBytes(Int16 count)]}
     [<CustomOperation("Load")>]
-    member _.Load(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[15uy; yield! getBytes(Int16 argument)]}
+    member _.Load(source: BuilderState, address:int16, count:int16)= { source with Bytecode = source.Bytecode@[15uy; yield! getBytes(Int16 address); yield! getBytes(Int16 count)]}
     [<CustomOperation("DStore")>]
     member _.DStore(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[29uy]}
     [<CustomOperation("DLoad")>]

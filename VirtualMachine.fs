@@ -27,7 +27,7 @@ type State = {
             CallStack = []
             FunctionPointer = 0s
             Functions = []
-            Memory = Array.create 2048 0uy
+            Memory = Array.create (1024 * 8) 0uy
             Bytecode = bytecode
             Error = System.String.Empty
         }
@@ -66,7 +66,7 @@ let RunProgram (state:State) =
 
     let rec Loop (machineCode:byte seq) state = 
         if state.ProgramCounter >= Seq.length machineCode 
-        then printf"%A" state; Error "Bytecode has no terminating opcode" 
+        then Error "Bytecode has no terminating opcode" 
         else 
             let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item state.ProgramCounter machineCode)) 
             match instruction with 
@@ -133,21 +133,30 @@ let RunProgram (state:State) =
                     }
                 )
             | Instruction.STORE -> 
-                let targetIndex = ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
-                let value::rest = state.Stack
-                System.Array.Copy(System.BitConverter.GetBytes(value), 0, state.Memory, int targetIndex, 4)
-                AssertStackRequirement state 1 (fun () -> 
+                let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                let targetCount = int <| ReadImmediate machineCode (state.ProgramCounter + 3) 2 (System.BitConverter.ToInt16)
+                let value = List.take targetCount state.Stack
+                let valueBytes = value |> List.map (Int32 >> getBytes) |> Seq.concat |> Seq.toArray
+                System.Array.Copy(valueBytes, 0, state.Memory, targetIndex, valueBytes.Length)
+                AssertStackRequirement state targetCount (fun () -> 
                     Loop machineCode {
-                        state with  ProgramCounter = state.ProgramCounter + 3
-                                    Stack = rest
+                        state with  ProgramCounter = state.ProgramCounter + 1 + 4
+                                    Stack = List.skip targetCount state.Stack
                     }
                 )
             | Instruction.LOAD -> 
                 let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
-                let value = System.BitConverter.ToInt32(state.Memory[targetIndex..(targetIndex + 4)])
+                let targetCount = int <| ReadImmediate machineCode (state.ProgramCounter + 3) 2 (System.BitConverter.ToInt16)
+                let value = 
+                    state.Memory
+                    |> Array.skip targetIndex
+                    |> Array.take  (targetCount * 4)
+                    |> Array.chunkBySize 4 
+                    |> Array.map (fun b -> ReadImmediate b 0 4 System.BitConverter.ToInt32)
+                    |> Array.toList
                 Loop machineCode {
-                    state with  ProgramCounter = state.ProgramCounter + 3
-                                Stack = value::state.Stack
+                    state with  ProgramCounter = state.ProgramCounter + 1 + 4 
+                                Stack = value@state.Stack
                 }
             | Instruction.DUP -> 
                 let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
@@ -175,7 +184,15 @@ let RunProgram (state:State) =
                     state with  ProgramCounter = state.ProgramCounter + 1
                                 Stack = number::state.Stack
                 }
-            | Instruction.FAIL -> Error "exception throw"
+            | Instruction.FAIL -> 
+                let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                let targetCount = int <| ReadImmediate machineCode (state.ProgramCounter + 3) 2 (System.BitConverter.ToInt16)
+                let errorMsg = 
+                    state.Memory
+                    |> Array.skip targetIndex
+                    |> Array.take  targetCount
+                    |> System.Text.Encoding.UTF8.GetString
+                Error errorMsg
             | _ -> Error "Undefined opcode"
 
     let functions = 

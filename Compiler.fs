@@ -4,12 +4,26 @@ module Language.Compiler
     open System.Collections.Generic
     open Language.Parser
     open Instructions
+    open Utils
 
-    let rec EmitBytecode bytecode (state : Dictionary<_,_> * Dictionary<_,_>) = 
-        let symbolTable, callTable = state
+    type EmissionState = {
+        SymbolTable : Dictionary<string, int>
+        CallTable : Dictionary<string, int>
+        mutable MemoryPointer : int
+        mutable ErrorCount : int
+    } with 
+        static member Empty = 
+            {
+                MemoryPointer = 0
+                SymbolTable = Dictionary<string, int>()
+                CallTable = Dictionary<string, int>()
+                ErrorCount = 0
+            }
+
+    let rec EmitBytecode bytecode (state : EmissionState) = 
         let rec EmitCodeSection idx codeSection = 
-            if callTable.Count = 0 then 
-                callTable["main"] <- 0
+            if state.CallTable.Count = 0 then 
+                state.CallTable["main"] <- 0
 
             let rec Loop instructions acc =
                 match instructions with 
@@ -42,43 +56,58 @@ module Language.Compiler
                             Build {
                                 Stop
                             }
-                        | Throw (_) -> 
+                        | Throw (error) -> 
+                            let msgBytes = System.Text.Encoding.UTF8.GetBytes(error) 
+                            let errorBytes = 
+                                msgBytes
+                                |> Array.chunkBySize 4
+                                |> Array.rev
+                                |> Array.map (fun chunk ->  [(byte)Instruction.PUSH; yield! chunk; yield! (Array.create (4 - Array.length chunk) 0uy) ])
+                                |> Seq.concat |> Seq.toList
+                            let errorId = sprintf "error%d" state.ErrorCount
+                            state.ErrorCount <- state.ErrorCount + 1
+                            state.SymbolTable[errorId] <- state.MemoryPointer
+                            state.MemoryPointer <- state.MemoryPointer + msgBytes.Length
                             Build {
-                                Fail
+                                Inline errorBytes
+                                Store (int16 state.SymbolTable[errorId]) (int16 (msgBytes.Length / 4))
+                                Fail (int16 state.SymbolTable[errorId]) (int16 (msgBytes.Length))
                             }
                         | FunctionDecl(name, args, hasReturnValue, body) as funDec -> 
-                            callTable[name] <- callTable.Count
+                            state.CallTable[name] <- state.CallTable.Count
                             Build {
                                 Defer (Build {
-                                    Signature (byte <| List.length args, if hasReturnValue then 1uy else 0uy)
+                                    Signature (1uy + (byte <| List.length args), if hasReturnValue then 1uy else 0uy)
                                     Inline (
                                         args 
                                         |> List.rev
                                         |> List.map ( fun arg -> 
-                                            let mangledName = sprintf "%d%s" callTable[name] arg
-                                            symbolTable[mangledName] <- symbolTable.Count * 4
+                                            let mangledName = sprintf "%d%s" state.CallTable[name] arg
+                                            state.SymbolTable[mangledName] <- state.MemoryPointer
+                                            state.MemoryPointer <- state.MemoryPointer + 4
                                             (Build {
-                                                Store (int16 symbolTable[mangledName])
+                                                Store (int16 state.SymbolTable[mangledName]) 1s
                                             }).Bytecode) 
                                         |> List.concat
                                     )
 
-                                    Inline (EmitCodeSection (callTable[name]) body |> _.Bytecode)
+                                    Inline (EmitCodeSection (state.CallTable[name]) body |> _.Bytecode)
                                 }).Bytecode
                             }
                         | VariableDecl(name, valueOpt) -> 
                             let mangledName = sprintf "%d%s" idx name
-                            symbolTable[mangledName] <- symbolTable.Count * 4
+                            state.SymbolTable[mangledName] <- state.MemoryPointer
+                            state.MemoryPointer <- state.MemoryPointer + 4
                             match valueOpt with 
                             | Some(value) -> 
                                 Build {
                                     Inline (handleSection value |> _.Bytecode)
-                                    Store (int16 symbolTable[mangledName])
+                                    Store (int16 state.SymbolTable[mangledName]) 1s
                                 }
                             | None ->
                                 Build {
                                     Push 0
-                                    Store (int16 symbolTable[mangledName])
+                                    Store (int16 state.SymbolTable[mangledName]) 1s
                                 } 
                         | WhileStatement(cond, body) -> 
                             let cond = (handleSection cond).Bytecode
@@ -109,7 +138,7 @@ module Language.Compiler
                             let mangledName = sprintf "%d%s" idx name
                             Build {
                                 Inline ((handleSection value).Bytecode)
-                                Store (int16 symbolTable[mangledName])
+                                Store (int16 state.SymbolTable[mangledName]) 1s
                             }
                         | ExpressionNode(expr) -> 
                             match expr with
@@ -124,7 +153,7 @@ module Language.Compiler
                             | Variable name -> 
                                 let mangledName = sprintf "%d%s" idx name
                                 Build {
-                                    Load (int16 symbolTable[mangledName])
+                                    Load (int16 state.SymbolTable[mangledName]) 1s
                                 }
                             | Call(name, args) -> 
                                 match name with 
@@ -135,7 +164,7 @@ module Language.Compiler
                                 | _ -> 
                                     Build {
                                         Inline (args |> List.map (handleSection >> _.Bytecode) |> List.concat)
-                                        Call (int16 callTable[name])
+                                        Call (int16 state.CallTable[name])
                                     }
                             | Binary(lhs, op, rhs) -> 
                                 let instruction = 
@@ -171,8 +200,9 @@ module Language.Compiler
             let result = 
                 Loop codeSection [] |> List.fold (fun st item -> {
                     st with  Bytecode = st.Bytecode@item.Bytecode
-                             Deferred = st.Deferred@item.Deferred 
-                }) { Bytecode = []; Deferred = [] }
+                             Deferred = st.Deferred@item.Deferred
+
+                }) { Bytecode = []; Deferred = []; }
             result
         let bytecodeBuilderState = EmitCodeSection 0 bytecode
         [0uy::0uy::bytecodeBuilderState.Bytecode]@bytecodeBuilderState.Deferred

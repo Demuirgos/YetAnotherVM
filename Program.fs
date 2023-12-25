@@ -25,8 +25,21 @@ let inputStr =
                 }
             }
         }
+
+        fun factorial(number,acc) {
+            if(number < 0) {
+                throw "number must be strictly positive";
+            }
+
+            if(number = 1) {
+                return acc;
+            } else {
+                return factorial(number - 1,acc * number);
+            }
+        }
+
         var input = read();
-        return isPrime(input);
+        return factorial(input,1);
     """
 
 let sumUpTo n = 
@@ -64,7 +77,7 @@ let bytecodeB =
 
 let bytecode = 
     match run (fromStr inputStr) ParseProgram with
-    | Success (result, _) -> printfn "%A" result; GenerateHeader (EmitBytecode result (Dictionary<_,_>(), Dictionary<_,_>()))
+    | Success (result, _) -> printfn "%A" result; GenerateHeader (EmitBytecode result EmissionState.Empty)
     | _ -> []
     |> List.ofSeq
     |> fun b -> printfn "%A" b; printfn "%s" (BytecodeToMnemonic b); b
