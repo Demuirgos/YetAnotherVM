@@ -121,9 +121,9 @@ type BytecodeBuilder() =
 
 
     [<CustomOperation("Signature")>]
-    member x.Signature (source: BuilderState, (inputCount:byte, outputCount:byte)) = { source with Bytecode = [inputCount; outputCount] }
+    member _.Signature (source: BuilderState, (inputCount:byte, outputCount:byte)) = { source with Bytecode = [inputCount; outputCount]@source.Bytecode }
     [<CustomOperation("Push")>]
-    member x.Push (source: BuilderState, argument:int32) = { source with Bytecode = source.Bytecode@[00uy; yield! getBytes(Int32 argument)]}
+    member _.Push (source: BuilderState, argument:int32) = { source with Bytecode = source.Bytecode@[00uy; yield! getBytes(Int32 argument)]}
     [<CustomOperation("Pop")>]
     member _.Pop(source: BuilderState) = { source with Bytecode = source.Bytecode@[01uy] }
     [<CustomOperation("Read")>]

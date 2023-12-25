@@ -77,7 +77,7 @@ module Language.Compiler
                             state.CallTable[name] <- state.CallTable.Count
                             Build {
                                 Defer (Build {
-                                    Signature (1uy + (byte <| List.length args), if hasReturnValue then 1uy else 0uy)
+                                    Signature (byte <| List.length args, if hasReturnValue then 1uy else 0uy)
                                     Inline (
                                         args 
                                         |> List.rev
