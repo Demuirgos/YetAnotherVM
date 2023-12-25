@@ -58,7 +58,7 @@ module Language.Parser
             and parseFunctionCall = 
                 Parser {
                     let pName = many 1 (anyOf chars)
-                    let pArgs = between pLeftParen (separateBy (parseExpression true true) (expect ',')) pRightParen                    
+                    let pArgs = between pLeftParen (separateBy (parseExpression true true) (pSpaces >>. (expect ',') >>. pSpaces)) pRightParen                    
                     return! pName .>>. pArgs 
                 } <?> "FuncCall" |>> (fun (a, b) -> (fromArrToStr a,b) |> Call)
             and parseBinary = 
@@ -110,7 +110,7 @@ module Language.Parser
             Parser {
                 let pFun = allOf ['f'; 'u'; 'n']
                 let pProc = allOf ['p'; 'r'; 'o'; 'c']
-                let pArgs = between pLeftParen (separateBy pName (expect ',')) pRightParen
+                let pArgs = between pLeftParen (separateBy pName (pSpaces >>. (expect ',') >>. pSpaces)) pRightParen
                 return! (pFun <|> pProc) .>> pSpaces .>>. pName .>> pSpaces .>>. pArgs 
                         .>> pSpaces .>> pLeftCurly 
                         .>> pSpaces .>>. separateBy (parseInstruction true) pSpaces

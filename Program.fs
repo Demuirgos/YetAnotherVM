@@ -26,7 +26,7 @@ let inputStr =
             }
         }
 
-        fun factorial(number,acc) {
+        fun factorial(number, acc) {
             if(number < 0) {
                 throw "number must be strictly positive";
             }
@@ -34,12 +34,12 @@ let inputStr =
             if(number = 1) {
                 return acc;
             } else {
-                return factorial(number - 1,acc * number);
+                return factorial(number - 1 , acc * number);
             }
         }
 
         var input = read();
-        return factorial(input,1);
+        return factorial(input, 1);
     """
 
 let sumUpTo n = 
