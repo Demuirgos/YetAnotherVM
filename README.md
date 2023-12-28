@@ -1,18 +1,26 @@
 DummyLang sample : 
-```
-fun add(a,b) {
-    a <- a + b;
-    return a;
+```js
+\ non-recursive func\
+fun factorial(number) {
+    var result = 1;
+    while(number > 0) {
+        result <- result * number;
+        number <- number - 1;
+    }
+    return result;
 }
-var condition = true;
-var result = 0;
-while(condition) {
-    result <- add(result,1);
-    if(result = 23) {
-        condition <- false;
-    }    
+
+\ recursive func \
+fun fibonacci(number) {
+    if((number = 0) | (number = 1)) {
+        return number;
+    } else {
+        return (fibonacci(number - 1)) + (fibonacci(number - 2));
+    }
 }
-return result;
+
+var input = read();
+return fibonacci(input);
 ```
 
 DummyVM F# DSL :

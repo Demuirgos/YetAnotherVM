@@ -21,22 +21,23 @@ module Language.Parser
         | ExpressionNode of Expression
         | Return         of Grammar option
         | Throw          of string
+        | Comment        of string
         | Halt
 
     let ParseProgram = 
         let digits = ['0'..'9'] 
         let operators = ['+'; '-'; '*'; '/'; '&'; '%'; '|'; '^'; '~'; '='; '<'; '>'; '!'] 
-        let chars = 
-            "abcdefghijklmnopqrstuvwxyz"
-            |> fun a -> sprintf "%s%s" a (a.ToUpper())
-            |> fun s -> s.ToCharArray()
-            |> Array.toList
-        
+        let alphabets = ['a'..'z']@['A'..'Z']
+        let special = [' '; '_'; '('; ')'; '{'; '}'; '['; ']'; '@'; '`'; ';'; ','; '.'; '|'; '$']
+        let spaces = ['\n'; '\t'; '\r']
+
+        let chars = alphabets@special@operators@digits@spaces
+
         let pLeftParen = expect '('
         let pRightParen = expect ')'
         let pLeftCurly = expect '{'
         let pRightCurly = expect '}'
-        let pName = many 1 (anyOf chars)
+        let pName = many 1 (anyOf alphabets)
 
         let fromArrToStr str = str |> List.toArray |> (fun s -> System.String s)
 
@@ -57,7 +58,7 @@ module Language.Parser
                 } <?> "Boolean" |>> fun v -> (if Boolean.Parse (fromArrToStr v) then 1 else 0) |> Single 
             and parseFunctionCall = 
                 Parser {
-                    let pName = many 1 (anyOf chars)
+                    let pName = many 1 (anyOf alphabets)
                     let pArgs = between pLeftParen (separateBy (parseExpression true true) (pSpaces >>. (expect ',') >>. pSpaces)) pRightParen                    
                     return! pName .>>. pArgs 
                 } <?> "FuncCall" |>> (fun (a, b) -> (fromArrToStr a,b) |> Call)
@@ -78,7 +79,7 @@ module Language.Parser
              
             (choice poolParser) <?> "Expression" |>>  ExpressionNode 
         and parseInstruction isDeep = 
-            let defaultParser = parseThrow <|> parseReturn <|> parseHalt <|> parseVariableAssignment <|> parseVariableDecl <|> parseIfElse <|> parseWhile
+            let defaultParser = parseComment <|> parseThrow <|> parseReturn <|> parseHalt <|> parseVariableAssignment <|> parseVariableDecl <|> parseIfElse <|> parseWhile
             if isDeep then defaultParser 
             else parseFunctionDec <|> defaultParser 
         and parseVariableDecl = 
@@ -122,12 +123,14 @@ module Language.Parser
             } <?> "HaltStatement" |>> fun _ -> Halt
         and parseThrow = 
             Parser {
-                let parseString = between (expect '"') (many 0 (anyOf (' '::chars))) (expect '"')
+                let parseString = between (expect '"') (many 0 (anyOf chars)) (expect '"')
                 return! allOf (List.ofSeq "throw") >>. pSpaces >>. parseString .>> expect ';'
             } <?> "ThrowStatement" |>> (fromArrToStr >> Throw)
         and parseReturn = 
             Parser {
                 return! allOf (List.ofSeq "return") >>. pSpaces >>. option (parseExpression true true) .>> expect ';'
             } <?> "ReturnStatement" |>> fun expr -> Return expr
-
+        and parseComment = 
+                between (expect '\\') (many 0 (anyOf chars)) (expect '\\') 
+                <?> "CommentStatement" |>> (fromArrToStr >> Comment)
         pSpaces >>. separateBy (parseInstruction false) pSpaces

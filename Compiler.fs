@@ -195,6 +195,10 @@ module Language.Compiler
                                     Inline (handleSection rhs |> _.Bytecode)
                                     Op instruction 
                                 }
+                        | Comment(_) -> 
+                                Build {
+                                    Empty
+                                }
                     Loop rest ((handleSection code)::acc)
                 | [] -> List.rev acc 
             let result = 

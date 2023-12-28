@@ -127,6 +127,8 @@ type BytecodeBuilder() =
     member _.Push (source: BuilderState, argument:int32) = { source with Bytecode = source.Bytecode@[00uy; yield! getBytes(Int32 argument)]}
     [<CustomOperation("Pop")>]
     member _.Pop(source: BuilderState) = { source with Bytecode = source.Bytecode@[01uy] }
+    [<CustomOperation("Empty")>]
+    member _.Empty (source: BuilderState) = { source with Bytecode = source.Bytecode}
     [<CustomOperation("Read")>]
     member _.Read(source: BuilderState) = { source with Bytecode = source.Bytecode@[30uy] }
     [<CustomOperation("Add")>]

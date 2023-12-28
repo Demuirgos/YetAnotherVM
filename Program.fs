@@ -26,6 +26,7 @@ let inputStr =
             }
         }
 
+        \ non-recursive function \
         fun factorial(number) {
             var result = 1;
             while(number > 0) {
@@ -35,6 +36,7 @@ let inputStr =
             return result;
         }
 
+        \ recursive function \
         fun fibonacci(number) {
             if((number = 0) | (number = 1)) {
                 return number;
