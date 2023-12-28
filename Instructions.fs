@@ -46,6 +46,7 @@ type Instruction =
     | EQ     = 27
 
     | INPUT  = 30
+    | OUTPUT = 31
 
 type Metadata = {
     StackArgument : byte
@@ -82,12 +83,13 @@ let GetMetadata opcode =
     | Instruction.CJUMP -> Metadata.from 1uy 2uy 0uy
     | Instruction.CALL  -> Metadata.from 0uy 2uy 0uy
     | Instruction.RETF  -> Metadata.from 0uy 0uy 0uy
-    | Instruction.STORE -> Metadata.from 1uy 4uy 0uy
-    | Instruction.LOAD  -> Metadata.from 0uy 4uy 1uy
+    | Instruction.STORE -> Metadata.from 0uy 5uy 0uy
+    | Instruction.LOAD  -> Metadata.from 0uy 5uy 1uy
     | Instruction.DUP   -> Metadata.from 1uy 2uy 1uy
     | Instruction.SWAP  -> Metadata.from 1uy 2uy 1uy
     | Instruction.FAIL  -> Metadata.from 0uy 4uy 0uy
     | Instruction.INPUT -> Metadata.from 0uy 0uy 1uy
+    | Instruction.OUTPUT -> Metadata.from 1uy 0uy 0uy
     | _ as instr -> printfn "%A" instr; failwith "invalid opcode"
 
 
@@ -131,6 +133,8 @@ type BytecodeBuilder() =
     member _.Empty (source: BuilderState) = { source with Bytecode = source.Bytecode}
     [<CustomOperation("Read")>]
     member _.Read(source: BuilderState) = { source with Bytecode = source.Bytecode@[30uy] }
+    [<CustomOperation("Write")>]
+    member _.Write(source: BuilderState) = { source with  Bytecode = source.Bytecode@[31uy]}
     [<CustomOperation("Add")>]
     member _.Add(source: BuilderState) = { source with Bytecode = source.Bytecode@[02uy] }
     [<CustomOperation("Mul")>]
@@ -177,13 +181,9 @@ type BytecodeBuilder() =
     [<CustomOperation("Swap")>]
     member _.Swap(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[17uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Store")>]
-    member _.Store(source: BuilderState, address: int16, count: int16)= { source with Bytecode = source.Bytecode@[14uy; yield! getBytes(Int16 address); yield! getBytes(Int16 count)]}
+    member _.Store(source: BuilderState, isDynamic:byte, address: int16, count: int16)= { source with Bytecode = source.Bytecode@[14uy; isDynamic; yield! getBytes(Int16 address); yield! getBytes(Int16 count)]}
     [<CustomOperation("Load")>]
-    member _.Load(source: BuilderState, address:int16, count:int16)= { source with Bytecode = source.Bytecode@[15uy; yield! getBytes(Int16 address); yield! getBytes(Int16 count)]}
-    [<CustomOperation("DStore")>]
-    member _.DStore(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[29uy]}
-    [<CustomOperation("DLoad")>]
-    member _.DLoad(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[30uy]}
+    member _.Load(source: BuilderState, isDynamic:byte, address:int16, count:int16)= { source with Bytecode = source.Bytecode@[15uy; isDynamic; yield! getBytes(Int16 address); yield! getBytes(Int16 count)]}
     [<CustomOperation("Jump")>]
     member _.Jump(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[10uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Cjump")>]

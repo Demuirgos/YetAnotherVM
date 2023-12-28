@@ -11,14 +11,17 @@ module Language.Parser
         | Binary of Grammar * char * Grammar
         | Unary of char * Grammar
         | Call of string * Grammar list
+        | List of Grammar list
+        | Indexer of string * Grammar
         | Paren of Grammar  
     and Grammar = 
-        | VariableDecl   of string * Grammar option
-        | VariableAssign of string * Grammar 
+        | VariableDecl   of string * int option * Grammar option
+        | VariableAssign of string * Grammar option * Grammar 
         | FunctionDecl   of string * (string list) * bool * Grammar list
         | IfStatement    of Grammar * Grammar list * Grammar list option
         | WhileStatement of Grammar * Grammar list
         | ExpressionNode of Expression
+        | EffectCall     of Grammar
         | Return         of Grammar option
         | Throw          of string
         | Comment        of string
@@ -37,6 +40,10 @@ module Language.Parser
         let pRightParen = expect ')'
         let pLeftCurly = expect '{'
         let pRightCurly = expect '}'
+        let pLeftBra = expect '['
+        let pRightKet = expect ']'
+        let pBraket = allOf ['['; ']']
+
         let pName = many 1 (anyOf alphabets)
 
         let fromArrToStr str = str |> List.toArray |> (fun s -> System.String s)
@@ -71,7 +78,15 @@ module Language.Parser
                 Parser {
                     return! pLeftParen >>. parseExpression true true .>> pRightParen 
                 } <?> "BinOp" |>> Paren
-            let mutable poolParser = [parseParen; parseValue; parseBoolean; parseVar]
+            and parseList = 
+                Parser {
+                    return! pLeftBra >>. separateBy (parseExpression true true) (option (pSpaces >>. (expect ',') >>. pSpaces)) .>> pRightKet 
+                } <?> "List" |>> List
+            and parseIndex = 
+                Parser {
+                    return! pName .>> pLeftBra .>>. parseExpression true true .>> pRightKet 
+                } <?> "Indexer" |>> fun (nameCharsList, indexer) -> (fromArrToStr nameCharsList, indexer) |> Indexer
+            let mutable poolParser = [parseIndex; parseList; parseParen; parseValue; parseBoolean; parseVar]
             if includeBin then 
                 poolParser <-  parseBinary::poolParser
             if includeFun then 
@@ -79,20 +94,29 @@ module Language.Parser
              
             (choice poolParser) <?> "Expression" |>>  ExpressionNode 
         and parseInstruction isDeep = 
-            let defaultParser = parseComment <|> parseThrow <|> parseReturn <|> parseHalt <|> parseVariableAssignment <|> parseVariableDecl <|> parseIfElse <|> parseWhile
+            let defaultParser = parseEffectCall <|> parseComment <|> parseThrow <|> parseReturn <|> parseHalt <|> parseVariableAssignment <|> parseVariableDecl <|> parseIfElse <|> parseWhile
             if isDeep then defaultParser 
             else parseFunctionDec <|> defaultParser 
+        and parseEffectCall = 
+            Parser {
+                let pDo = allOf ['d'; 'o']
+                return! pDo >>. pSpaces >>. (parseExpression false true) .>> expect ';'
+            } <?> "EffectCall" |>> EffectCall
         and parseVariableDecl = 
+            let parseFromOption option = 
+                match option with 
+                | Some(value) -> Some(Int32.Parse <| (fromArrToStr <| value))
+                | _ -> None
             Parser {
                 let pVar = allOf ['v'; 'a'; 'r']
                 let pEq = expect '='
-                return! pVar >>. pSpaces >>. pName .>> pSpaces .>>. option(pEq >>. pSpaces >>. (parseExpression true true)) .>> expect ';'
-            } <?> "VarDeclStmt" |>> (fun (a, b) -> (fromArrToStr a,b) |> VariableDecl)
+                return! pVar >>. pSpaces >>. pName .>>. option (pLeftBra >>. many 1  (anyOf digits) .>> pRightKet) .>> pSpaces .>>. option(pEq >>. pSpaces >>. (parseExpression true true)) .>> expect ';'
+            } <?> "VarDeclStmt" |>> (fun ((name, sizeOpt), value) -> (fromArrToStr name, parseFromOption sizeOpt ,value) |> VariableDecl)
         and parseVariableAssignment = 
             Parser {
                 let pArrow = allOf ['<'; '-']
-                return! pName .>> pSpaces .>> pArrow .>> pSpaces .>>. (parseExpression true true) .>> expect ';'
-            } <?> "VarAssignment" |>> (fun (a, b) -> (fromArrToStr a,b) |> VariableAssign)
+                return! pName .>>. option (pLeftBra >>. parseExpression true true .>> pRightKet) .>> pSpaces .>> pArrow .>> pSpaces .>>. (parseExpression true true) .>> expect ';'
+            } <?> "VarAssignment" |>> (fun ((name, indexerOpt), value) -> (fromArrToStr name, indexerOpt,  value) |> VariableAssign)
         and parseIfElse = 
             Parser {
                 let pIf = allOf ['i'; 'f']

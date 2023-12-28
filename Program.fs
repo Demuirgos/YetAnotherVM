@@ -45,8 +45,14 @@ let inputStr =
             }
         }
         
-        var input = read();
-        return fibonacci(input);
+        var array[3];
+        var index = 0;
+        while(index < 3) {
+            array[index] <- read();
+            do write(array[index]);
+            index <- index + 1;
+        }
+        return array[0];
     """
 
 let sumUpTo n = 
