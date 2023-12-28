@@ -39,7 +39,7 @@ module Language.Compiler
                                 }
                             | _ -> 
                                 Build {
-                                        Return
+                                    Return
                                 }
                         | Return(exprOpt) when idx <> 0 -> 
                             match exprOpt with 
@@ -74,57 +74,26 @@ module Language.Compiler
                                 Fail (int16 state.SymbolTable[errorId]) (int16 (msgBytes.Length))
                             }
                         | FunctionDecl(name, args, hasReturnValue, body) as funDec -> 
-                            let rec searchForFunctionCall node=
-                                let rec searchForFunctionCall' expression =  
-                                    match expression with
-                                    | Call(subName, _) -> subName = name
-                                    | Binary(ExpressionNode(leftExpr), _, ExpressionNode(rightExpr)) -> 
-                                        (searchForFunctionCall' leftExpr) || (searchForFunctionCall' rightExpr)
-                                    | Unary(_, ExpressionNode(expr)) -> 
-                                        searchForFunctionCall' expr
-                                    | Paren(ExpressionNode(expr)) -> searchForFunctionCall' expr
-                                    | _ -> false
-                                match node with 
-                                | VariableDecl(_, Some(expr)) -> searchForFunctionCall expr
-                                | VariableAssign(_, expr) -> searchForFunctionCall expr 
-                                | IfStatement(condExpr, thenBody, elseBodyOpt) -> 
-                                    searchForFunctionCall condExpr 
-                                    || (thenBody |> List.map (searchForFunctionCall) |> List.where ((=) true) |> List.length) > 0
-                                    ||  match elseBodyOpt with 
-                                        | Some elseBody -> (elseBody |> List.map (searchForFunctionCall) |> List.where ((=) true) |> List.length) > 0
-                                        | _ ->  false 
-                                | WhileStatement(cond, body) -> 
-                                    searchForFunctionCall cond
-                                    || (body |> List.map (searchForFunctionCall) |> List.where ((=) true) |> List.length) > 0
-                                | ExpressionNode(expression) -> searchForFunctionCall' expression
-                                | Return(Some(ExpressionNode(expr))) -> searchForFunctionCall' expr
-                                | Return(None) -> false
-                                | Throw(_) -> false 
-                                | Halt -> false
-                            
-                            match body |> List.map searchForFunctionCall |> List.where ((=) true) with
-                            | [] -> 
-                                state.CallTable[name] <- state.CallTable.Count
-                                Build {
-                                    Defer (Build {
-                                        Signature (byte <| List.length args, if hasReturnValue then 1uy else 0uy)
-                                        Inline (
-                                            args 
-                                            |> List.rev
-                                            |> List.map ( fun arg -> 
-                                                let mangledName = sprintf "%d%s" state.CallTable[name] arg
-                                                state.SymbolTable[mangledName] <- state.MemoryPointer
-                                                state.MemoryPointer <- state.MemoryPointer + 4
-                                                (Build {
-                                                    Store (int16 state.SymbolTable[mangledName]) 1s
-                                                }).Bytecode) 
-                                            |> List.concat
-                                        )
+                            state.CallTable[name] <- state.CallTable.Count
+                            Build {
+                                Defer (Build {
+                                    Signature (byte <| List.length args, if hasReturnValue then 1uy else 0uy)
+                                    Inline (
+                                        args 
+                                        |> List.rev
+                                        |> List.map ( fun arg -> 
+                                            let mangledName = sprintf "%d%s" state.CallTable[name] arg
+                                            state.SymbolTable[mangledName] <- state.MemoryPointer
+                                            state.MemoryPointer <- state.MemoryPointer + 4
+                                            (Build {
+                                                Store (int16 state.SymbolTable[mangledName]) 1s
+                                            }).Bytecode) 
+                                        |> List.concat
+                                    )
 
-                                        Inline (EmitCodeSection (state.CallTable[name]) body |> _.Bytecode)
-                                    }).Bytecode
-                                }
-                            | _ -> failwith "recursive functions are not supported"
+                                    Inline (EmitCodeSection (state.CallTable[name]) body |> _.Bytecode)
+                                }).Bytecode
+                            }
                         | VariableDecl(name, valueOpt) -> 
                             let mangledName = sprintf "%d%s" idx name
                             state.SymbolTable[mangledName] <- state.MemoryPointer

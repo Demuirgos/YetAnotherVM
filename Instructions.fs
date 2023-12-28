@@ -44,6 +44,7 @@ type Instruction =
     | GT     = 25
     | LT     = 26
     | EQ     = 27
+
     | INPUT  = 30
 
 type Metadata = {

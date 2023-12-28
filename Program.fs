@@ -34,9 +34,17 @@ let inputStr =
             }
             return result;
         }
+
+        fun fibonacci(number) {
+            if((number = 0) | (number = 1)) {
+                return number;
+            } else {
+                return (fibonacci(number - 1)) + (fibonacci(number - 2));
+            }
+        }
         
         var input = read();
-        return factorial(input);
+        return fibonacci(input);
     """
 
 let sumUpTo n = 
@@ -70,7 +78,8 @@ let bytecodeB =
         Push 23
         Push 03 
         Mul
-    }
+        Return
+    } 
 
 let bytecode = 
     match run (fromStr inputStr) ParseProgram with
