@@ -33,9 +33,9 @@ type State = {
         }
 
 let RunProgram (state:State) = 
-    let AssertStackRequirement state n cont = 
+    let AssertStackRequirement state n = 
         if n <= List.length state.Stack 
-        then cont()
+        then Ok()
         else 
             let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item (state.ProgramCounter + 1 + int(state.Bytecode[0]) * 4) state.Bytecode)) 
             Error (sprintf "Stack underflow %d, opcode: %A" state.ProgramCounter instruction)
@@ -64,78 +64,148 @@ let RunProgram (state:State) =
                         ProgramCounter = destination + 1
         }
 
-    let rec Loop (machineCode:byte seq) state = 
-        if state.ProgramCounter >= Seq.length machineCode 
+    let rec Loop state = 
+        if state.ProgramCounter >= Seq.length state.Bytecode 
         then Error "Bytecode has no terminating opcode" 
         else 
-            let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item state.ProgramCounter machineCode)) 
+            let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item state.ProgramCounter state.Bytecode)) 
             match instruction with 
             | Instruction.PUSH -> 
-                let argument = ReadImmediate machineCode (state.ProgramCounter + 1) 4 (System.BitConverter.ToInt32)
-                Loop machineCode {
+                let argument = ReadImmediate state.Bytecode (state.ProgramCounter + 1) 4 (System.BitConverter.ToInt32)
+                Loop {
                     state with  ProgramCounter = state.ProgramCounter + 5
                                 Stack = argument::state.Stack
                 }
             | Instruction.POP -> 
-                AssertStackRequirement state 1 (fun () -> Loop machineCode {
-                    state with  ProgramCounter = state.ProgramCounter + 1
-                                Stack = state.Stack.Tail
-                })
-            | Instruction.RETURN -> AssertStackRequirement state 1 (fun () -> Ok <| Some (state.Stack.Head))
-
-            | Instruction.ADD -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( + )))
-            | Instruction.MUL -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( * )))
-            | Instruction.DIV -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( / )))
-            | Instruction.EXP -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state pown))
-            | Instruction.SUB -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( - )))
-            | Instruction.MOD -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( % )))
-            
-            | Instruction.LHS -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( <<< )))
-            | Instruction.RHS -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( >>> )))
-            | Instruction.AND -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( &&& )))
-            | Instruction.OR  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( ||| )))
-            | Instruction.XOR -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( ^^^ )))
-            
-            | Instruction.NEG -> AssertStackRequirement state 1 (fun () -> Loop machineCode (ApplyUnary  state ( ~~~ )))
-            | Instruction.NOT  -> AssertStackRequirement state 1 (fun () -> Loop machineCode (ApplyUnary state ( fun a -> if a <> 0 then 0 else 1)))
-
-            | Instruction.GT  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( fun a b -> if a > b then 1 else 0)))
-            | Instruction.LT  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( fun a b -> if a < b then 1 else 0)))
-            | Instruction.EQ  -> AssertStackRequirement state 2 (fun () -> Loop machineCode (ApplyBinary state ( fun a b -> if a = b then 1 else 0)))
-
+                match AssertStackRequirement state 1 with 
+                | Ok _ ->  
+                    Loop {
+                        state with  ProgramCounter = state.ProgramCounter + 1
+                                    Stack = state.Stack.Tail
+                    }
+                | Error(err) -> Error(err)
+            | Instruction.RETURN -> 
+                match AssertStackRequirement state 1 with 
+                | Ok _ ->  
+                    Ok <| Some (state.Stack.Head)
+                | Error(err) -> Error(err)
+            | Instruction.ADD    -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( + ))
+                | Error(err) -> Error(err)
+            | Instruction.MUL    -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( * ))
+                | Error(err) -> Error(err)
+            | Instruction.DIV    -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( / ))
+                | Error(err) -> Error(err)
+            | Instruction.EXP    -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state pown)
+                | Error(err) -> Error(err)
+            | Instruction.SUB    -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( - ))
+                | Error(err) -> Error(err)
+            | Instruction.MOD    -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( % ))
+                | Error(err) -> Error(err)
+            | Instruction.LHS    -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( <<< ))
+                | Error(err) -> Error(err)
+            | Instruction.RHS    -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( >>> ))
+                | Error(err) -> Error(err)
+            | Instruction.AND    -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( &&& ))
+                | Error(err) -> Error(err)
+            | Instruction.OR     -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( ||| ))
+                | Error(err) -> Error(err)
+            | Instruction.XOR    -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( ^^^ ))
+                | Error(err) -> Error(err)
+            | Instruction.NEG -> 
+                match AssertStackRequirement state 1 with 
+                | Ok _ ->  
+                    Loop (ApplyUnary  state ( ~~~ ))
+                | Error(err) -> Error(err)
+            | Instruction.NOT -> 
+                match AssertStackRequirement state 1 with 
+                | Ok _ ->  
+                    Loop (ApplyUnary state ( fun a -> if a <> 0 then 0 else 1))
+                | Error(err) -> Error(err)
+            | Instruction.GT  -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( fun a b -> if a > b then 1 else 0))
+                | Error(err) -> Error(err)
+            | Instruction.LT  -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( fun a b -> if a < b then 1 else 0))
+                | Error(err) -> Error(err)
+            | Instruction.EQ  -> 
+                match AssertStackRequirement state 2 with 
+                | Ok _ ->  
+                    Loop (ApplyBinary state ( fun a b -> if a = b then 1 else 0))
+                | Error(err) -> Error(err)
             | Instruction.JUMP ->  
-                let target = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
-                Loop machineCode (JumpToPointer state false target) 
-            | Instruction.CJUMP ->  
-                AssertStackRequirement state 1 (fun () -> 
-                    let target = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
-                    Loop machineCode (JumpToPointer state true target))
+                let target = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                Loop (JumpToPointer state false target) 
+            | Instruction.CJUMP -> 
+                match AssertStackRequirement state 1 with 
+                | Ok _ ->  
+                    let target = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                    Loop (JumpToPointer state true target)
+                | Error(err) -> Error(err) 
             | Instruction.STOP -> Ok <| None
             | Instruction.CALL -> 
-                let targetIndex = ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                let targetIndex = ReadImmediate state.Bytecode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
                 let callFrame = (state.FunctionPointer, state.ProgramCounter, List.length state.Stack)
                 let targetSection = state.Functions[int targetIndex]
-                AssertStackRequirement state (int targetSection.Input) (fun () -> 
-                    Loop machineCode {
+                match AssertStackRequirement state (int targetSection.Input) with 
+                | Ok _ ->  
+                    Loop {
                         state with ProgramCounter = targetSection.StartIndex
                                    CallStack = callFrame::state.CallStack
                                    FunctionPointer = targetIndex
                     }
-                )
+                | Error(err) -> Error(err) 
             | Instruction.RETF -> 
                 let (functionIndex, programCounter, stackSize)::rest = state.CallStack
                 let currentSection = state.Functions[int state.FunctionPointer]
-                AssertStackRequirement state (stackSize - int currentSection.Input + int currentSection.Output) (fun () -> 
-                    Loop machineCode {
+                match AssertStackRequirement state (stackSize - int currentSection.Input + int currentSection.Output) with 
+                | Ok _ ->  
+                    Loop {
                         state with ProgramCounter = programCounter + 3
                                    CallStack = rest
                                    FunctionPointer = functionIndex
                     }
-                )
+                | Error(err) -> Error(err) 
             | Instruction.STORE -> 
-                let isDynamic   = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 1 (fun bs -> bs[0])
-                let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 2) 2 (System.BitConverter.ToInt16)
-                let targetCount = int <| ReadImmediate machineCode (state.ProgramCounter + 4) 2 (System.BitConverter.ToInt16)
+                let isDynamic   = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 1) 1 (fun bs -> bs[0])
+                let targetIndex = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 2) 2 (System.BitConverter.ToInt16)
+                let targetCount = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 4) 2 (System.BitConverter.ToInt16)
                 
                 let stackFrame = List.length state.CallStack
                 let (offset, value, stack) =
@@ -150,16 +220,17 @@ let RunProgram (state:State) =
                 
                 let valueBytes = value |> List.map (Int32 >> getBytes) |> Seq.concat |> Seq.toArray
                 System.Array.Copy(valueBytes, 0, state.Memory, ((stackFrame * 512) + offset + targetIndex), valueBytes.Length)
-                AssertStackRequirement state (((if isDynamic <> 0 then 1 else 0)) + targetCount) (fun () -> 
-                    Loop machineCode {
+                match AssertStackRequirement state (((if isDynamic <> 0 then 1 else 0)) + targetCount) with 
+                | Ok _ ->  
+                    Loop {
                         state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 1
                                     Stack = stack
                     }
-                )
+                | Error(err) -> Error(err) 
             | Instruction.LOAD -> 
-                let isDynamic   = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 1 (fun bs -> bs[0])
-                let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 2) 2 (System.BitConverter.ToInt16)
-                let targetCount = int <| ReadImmediate machineCode (state.ProgramCounter + 4) 2 (System.BitConverter.ToInt16)
+                let isDynamic   = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 1) 1 (fun bs -> bs[0])
+                let targetIndex = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 2) 2 (System.BitConverter.ToInt16)
+                let targetCount = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 4) 2 (System.BitConverter.ToInt16)
                 let stackFrame = List.length state.CallStack
 
                 let (offset, stack) =
@@ -179,48 +250,51 @@ let RunProgram (state:State) =
                     (offset, value@stack)
                 
                 
-                Loop machineCode {
+                Loop {
                     state with  ProgramCounter = state.ProgramCounter + 1 + 1 + 4 
                                 Stack = stack
                 }
             | Instruction.DUP -> 
-                let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
-                AssertStackRequirement state targetIndex (fun () -> 
-                    Loop machineCode {
+                let targetIndex = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                match AssertStackRequirement state targetIndex with 
+                | Ok _ ->  
+                    Loop {
                         state with  ProgramCounter = state.ProgramCounter + 3
                                     Stack = state.Stack[targetIndex]::state.Stack
                     }
-                )
+                | Error(err) -> Error(err) 
             | Instruction.SWAP -> 
-                let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
-                AssertStackRequirement state targetIndex (fun () -> 
+                let targetIndex = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                match AssertStackRequirement state targetIndex with 
+                | Ok _ ->  
                     let newStack =
                         state.Stack 
                         |> List.mapi (fun i v -> if i = 0 then state.Stack[targetIndex] else if i = targetIndex then state.Stack.Head else v) 
 
-                    Loop machineCode {
+                    Loop {
                             state with  ProgramCounter = state.ProgramCounter + 3
                                         Stack = newStack
                         }
-                )
+                | Error(err) -> Error(err) 
             | Instruction.INPUT -> 
                 let number = Int32.Parse(Console.ReadLine())
-                Loop machineCode {
+                Loop {
                     state with  ProgramCounter = state.ProgramCounter + 1
                                 Stack = number::state.Stack
                 }
             | Instruction.OUTPUT -> 
-                AssertStackRequirement state 1 (fun () -> 
+                match AssertStackRequirement state 1 with 
+                | Ok _ ->  
                     let number::_ = state.Stack
                     Console.WriteLine(number);
-                    Loop machineCode {
+                    Loop {
                         state with  ProgramCounter = state.ProgramCounter + 1
                                     Stack = state.Stack
                     }
-                )
+                | Error(err) -> Error(err) 
             | Instruction.FAIL -> 
-                let targetIndex = int <| ReadImmediate machineCode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
-                let targetCount = int <| ReadImmediate machineCode (state.ProgramCounter + 3) 2 (System.BitConverter.ToInt16)
+                let targetIndex = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
+                let targetCount = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 3) 2 (System.BitConverter.ToInt16)
                 let errorMsg = 
                     state.Memory
                     |> Array.skip targetIndex
@@ -237,6 +311,7 @@ let RunProgram (state:State) =
             StartIndex = ptr
         }) 
 
-    Loop (Seq.skip (1 + 4 * List.length functions) state.Bytecode) { 
+    Loop { 
         state with  Functions = functions
+                    Bytecode = Seq.skip (1 + 4 * List.length functions) state.Bytecode |> Seq.toList
     }
