@@ -6,7 +6,6 @@ type Int =
 
 type Instruction = 
     | MOV    = 01
-    | READ   = 03
     
     | ADD    = 04
     | MUL    = 05
@@ -43,6 +42,10 @@ type Instruction =
     | LT     = 27
     | EQ     = 28
 
+    | DUP = 31
+    | SWAP = 32
+
+
     | INPUT  = 29
     | OUTPUT = 30
 
@@ -55,7 +58,8 @@ type Metadata = {
 let GetMetadata opcode = 
     match opcode with 
     | Instruction.MOV -> Metadata.from 2uy
-    | Instruction.READ-> Metadata.from 2uy
+    | Instruction.DUP -> Metadata.from 2uy
+    | Instruction.SWAP -> Metadata.from 2uy
     | Instruction.ADD
     | Instruction.MUL
     | Instruction.DIV

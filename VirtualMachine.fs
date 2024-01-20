@@ -53,7 +53,7 @@ let RunProgram (state:State) =
         else 
             let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item state.ProgramCounter state.Bytecode)) 
             match instruction with 
-            | Instruction.READ ->
+            | Instruction.MOV ->
                 let value = ReadImmediate state.Bytecode (state.ProgramCounter + 1) 4 (System.BitConverter.ToInt32)
                 let register = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
                 
@@ -62,11 +62,25 @@ let RunProgram (state:State) =
                     state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 4
                                 Registers = state.Registers 
                 }
-            | Instruction.MOV ->
+            | Instruction.DUP ->
                 let register1 = ReadImmediate state.Bytecode (state.ProgramCounter + 1) 4 (System.BitConverter.ToInt32)
                 let register2 = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
                 
                 Array.set state.Registers register2 (state.Registers[register1])
+                Loop {
+                    state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 4
+                                Registers = state.Registers 
+                }
+            | Instruction.SWAP ->
+                let register1 = ReadImmediate state.Bytecode (state.ProgramCounter + 1) 4 (System.BitConverter.ToInt32)
+                let register2 = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
+                
+                let reg1Value = state.Registers[register1]
+                let reg2Value = state.Registers[register2]
+
+                state.Registers[register2] <- reg1Value
+                state.Registers[register2] <- reg2Value
+
                 Loop {
                     state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 4
                                 Registers = state.Registers 
