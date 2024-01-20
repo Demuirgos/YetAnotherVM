@@ -87,9 +87,6 @@ let GetMetadata opcode =
     | Instruction.LOAD  -> Metadata.from 0uy 5uy 1uy
     | Instruction.DUP   -> Metadata.from 1uy 2uy 1uy
     | Instruction.SWAP  -> Metadata.from 1uy 2uy 1uy
-    | Instruction.FAIL  -> Metadata.from 0uy 4uy 0uy
-    | Instruction.INPUT -> Metadata.from 0uy 0uy 1uy
-    | Instruction.OUTPUT -> Metadata.from 1uy 0uy 0uy
     | _ as instr -> printfn "%A" instr; failwith "invalid opcode"
 
 
@@ -131,10 +128,6 @@ type BytecodeBuilder() =
     member _.Pop(source: BuilderState) = { source with Bytecode = source.Bytecode@[01uy] }
     [<CustomOperation("Empty")>]
     member _.Empty (source: BuilderState) = { source with Bytecode = source.Bytecode}
-    [<CustomOperation("Read")>]
-    member _.Read(source: BuilderState) = { source with Bytecode = source.Bytecode@[30uy] }
-    [<CustomOperation("Write")>]
-    member _.Write(source: BuilderState) = { source with  Bytecode = source.Bytecode@[31uy]}
     [<CustomOperation("Add")>]
     member _.Add(source: BuilderState) = { source with Bytecode = source.Bytecode@[02uy] }
     [<CustomOperation("Mul")>]
@@ -151,8 +144,6 @@ type BytecodeBuilder() =
     member _.Return(source: BuilderState) = { source with Bytecode = source.Bytecode@[08uy] }
     [<CustomOperation("Stop")>]
     member _.Stop(source: BuilderState) = { source with Bytecode = source.Bytecode@[09uy] }
-    [<CustomOperation("Fail")>]
-    member _.Fail(source: BuilderState, idx: int16, len: int16) = { source with  Bytecode = source.Bytecode@[18uy; yield! getBytes(Int16 idx); yield! getBytes(Int16 len) ]}
     [<CustomOperation("Neg")>]
     member _.Neg(source: BuilderState) = { source with Bytecode = source.Bytecode@[19uy] }
     [<CustomOperation("And")>]

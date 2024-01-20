@@ -205,7 +205,6 @@ let RunProgram (state:State) =
             | Instruction.STORE -> 
                 let isDynamic   = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 1) 1 (fun bs -> bs[0])
                 let targetIndex = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 2) 2 (System.BitConverter.ToInt16)
-                let targetCount = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 4) 2 (System.BitConverter.ToInt16)
                 
                 let stackFrame = List.length state.CallStack
                 let (offset, value, stack) =
@@ -214,13 +213,12 @@ let RunProgram (state:State) =
                             (state.Stack.Head, state.Stack.Tail)
                         else (0, state.Stack)
                     
-                    let value = 
-                        List.take targetCount stack
-                    (offset, value, List.skip targetCount stack)
+                    let value = stack.Head
+                    (offset, value, stack.Tail)
                 
-                let valueBytes = value |> List.map (Int32 >> getBytes) |> Seq.concat |> Seq.toArray
+                let valueBytes = value |> (Int32 >> getBytes) 
                 System.Array.Copy(valueBytes, 0, state.Memory, ((stackFrame * 512) + offset + targetIndex), valueBytes.Length)
-                match AssertStackRequirement state (((if isDynamic <> 0 then 1 else 0)) + targetCount) with 
+                match AssertStackRequirement state (((if isDynamic <> 0 then 1 else 0)) + 1) with 
                 | Ok _ ->  
                     Loop {
                         state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 1
@@ -230,7 +228,6 @@ let RunProgram (state:State) =
             | Instruction.LOAD -> 
                 let isDynamic   = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 1) 1 (fun bs -> bs[0])
                 let targetIndex = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 2) 2 (System.BitConverter.ToInt16)
-                let targetCount = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 4) 2 (System.BitConverter.ToInt16)
                 let stackFrame = List.length state.CallStack
 
                 let (offset, stack) =
@@ -242,12 +239,10 @@ let RunProgram (state:State) =
                     let value = 
                         state.Memory
                         |> Array.skip (targetIndex + offset + (stackFrame * 512))
-                        |> Array.take  (targetCount * 4)
-                        |> Array.chunkBySize 4 
-                        |> Array.map (fun b -> ReadImmediate b 0 4 System.BitConverter.ToInt32)
-                        |> Array.toList
+                        |> Array.take 4
+                        |> System.BitConverter.ToInt32
                     
-                    (offset, value@stack)
+                    (offset, value::stack)
                 
                 
                 Loop {
@@ -276,31 +271,6 @@ let RunProgram (state:State) =
                                         Stack = newStack
                         }
                 | Error(err) -> Error(err) 
-            | Instruction.INPUT -> 
-                let number = Int32.Parse(Console.ReadLine())
-                Loop {
-                    state with  ProgramCounter = state.ProgramCounter + 1
-                                Stack = number::state.Stack
-                }
-            | Instruction.OUTPUT -> 
-                match AssertStackRequirement state 1 with 
-                | Ok _ ->  
-                    let number::_ = state.Stack
-                    Console.WriteLine(number);
-                    Loop {
-                        state with  ProgramCounter = state.ProgramCounter + 1
-                                    Stack = state.Stack
-                    }
-                | Error(err) -> Error(err) 
-            | Instruction.FAIL -> 
-                let targetIndex = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 1) 2 (System.BitConverter.ToInt16)
-                let targetCount = int <| ReadImmediate state.Bytecode (state.ProgramCounter + 3) 2 (System.BitConverter.ToInt16)
-                let errorMsg = 
-                    state.Memory
-                    |> Array.skip targetIndex
-                    |> Array.take  targetCount
-                    |> System.Text.Encoding.UTF8.GetString
-                Error errorMsg
             | _ -> Error "Undefined opcode"
 
     let functions = 
