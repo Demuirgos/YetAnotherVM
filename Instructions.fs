@@ -5,61 +5,57 @@ type Int =
     | Int16 of int16
 
 type Instruction = 
-    | PUSH   = 00 
-    | POP    = 01
+    | MOV    = 01
+    | READ   = 03
+    
+    | ADD    = 04
+    | MUL    = 05
+    | DIV    = 06
+    | SUB    = 07
+    | EXP    = 08
 
-    | ADD    = 02
-    | MUL    = 03
-    | DIV    = 04
-    | SUB    = 05
-    | EXP    = 06
-    | MOD    = 07
+    | MOD    = 09
     
-    | RETURN = 08
-    | STOP   = 09
+    | RETURN = 10
+    | STOP   = 11
     
-    | JUMP   = 10
-    | CJUMP  = 11
+    | JUMP   = 12
+    | CJUMP  = 13
     
-    | CALL   = 12
-    | RETF   = 13
+    | CALL   = 14
+    | RETF   = 15
     
-    | STORE  = 14
-    | LOAD   = 15
-
-    | DUP    = 16
-    | SWAP   = 17
-
+    | STORE  = 16
+    | LOAD   = 17
+    
     | FAIL   = 18
     
     | NEG    = 19
-    | NOT    = 28
-    | AND    = 20
-    | OR     = 21
-    | XOR    = 22
-
-    | LHS    = 23
-    | RHS    = 24
+    | NOT    = 20
     
-    | GT     = 25
-    | LT     = 26
-    | EQ     = 27
+    | AND    = 21
+    | OR     = 22
+    | XOR    = 23
+    | LHS    = 24
+    | RHS    = 25
+    
+    | GT     = 26
+    | LT     = 27
+    | EQ     = 28
 
-    | INPUT  = 30
-    | OUTPUT = 31
+    | INPUT  = 29
+    | OUTPUT = 30
 
 type Metadata = {
-    StackArgument : byte
     ImmediateArgument : byte
-    StackOutput : byte
-} with static member from sArg iArg sOut = {StackArgument = sArg; ImmediateArgument = iArg; StackOutput = sOut}
+} with static member from iArg  = { ImmediateArgument = iArg }
 
 
 
 let GetMetadata opcode = 
     match opcode with 
-    | Instruction.PUSH -> Metadata.from 0uy 4uy 1uy
-    | Instruction.POP  -> Metadata.from 1uy 0uy 0uy
+    | Instruction.MOV -> Metadata.from 2uy
+    | Instruction.READ-> Metadata.from 2uy
     | Instruction.ADD
     | Instruction.MUL
     | Instruction.DIV
@@ -67,29 +63,23 @@ let GetMetadata opcode =
     | Instruction.EXP
     | Instruction.GT
     | Instruction.LT
-    | Instruction.GT
     | Instruction.AND
     | Instruction.OR
     | Instruction.XOR
     | Instruction.EQ
     | Instruction.LHS
     | Instruction.RHS
-    | Instruction.MOD   -> Metadata.from 2uy 0uy 1uy
-    | Instruction.NOT
-    | Instruction.NEG   -> Metadata.from 1uy 0uy 1uy
-    | Instruction.RETURN -> Metadata.from 1uy 0uy 0uy
-    | Instruction.STOP  -> Metadata.from 0uy 0uy 0uy
-    | Instruction.JUMP  -> Metadata.from 0uy 2uy 0uy
-    | Instruction.CJUMP -> Metadata.from 1uy 2uy 0uy
-    | Instruction.CALL  -> Metadata.from 0uy 2uy 0uy
-    | Instruction.RETF  -> Metadata.from 0uy 0uy 0uy
-    | Instruction.STORE -> Metadata.from 0uy 5uy 0uy
-    | Instruction.LOAD  -> Metadata.from 0uy 5uy 1uy
-    | Instruction.DUP   -> Metadata.from 1uy 2uy 1uy
-    | Instruction.SWAP  -> Metadata.from 1uy 2uy 1uy
-    | Instruction.FAIL  -> Metadata.from 0uy 4uy 0uy
-    | Instruction.INPUT -> Metadata.from 0uy 0uy 1uy
-    | Instruction.OUTPUT -> Metadata.from 1uy 0uy 0uy
+    | Instruction.MOD    -> Metadata.from 2uy
+    | Instruction.NOT    -> Metadata.from 1uy
+    | Instruction.NEG    -> Metadata.from 2uy
+    | Instruction.RETURN -> Metadata.from 0uy
+    | Instruction.STOP   -> Metadata.from 0uy
+    | Instruction.JUMP   -> Metadata.from 1uy
+    | Instruction.CJUMP  -> Metadata.from 1uy
+    | Instruction.CALL   -> Metadata.from 1uy
+    | Instruction.RETF   -> Metadata.from 0uy
+    | Instruction.STORE  -> Metadata.from 2uy
+    | Instruction.LOAD   -> Metadata.from 2uy
     | _ as instr -> printfn "%A" instr; failwith "invalid opcode"
 
 
@@ -124,8 +114,6 @@ type BytecodeBuilder() =
 
 
     [<CustomOperation("Signature")>]
-    member _.Signature (source: BuilderState, (inputCount:byte, outputCount:byte)) = { source with Bytecode = [inputCount; outputCount]@source.Bytecode }
-    [<CustomOperation("Push")>]
     member _.Push (source: BuilderState, argument:int32) = { source with Bytecode = source.Bytecode@[00uy; yield! getBytes(Int32 argument)]}
     [<CustomOperation("Pop")>]
     member _.Pop(source: BuilderState) = { source with Bytecode = source.Bytecode@[01uy] }

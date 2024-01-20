@@ -1,4 +1,4 @@
-/ function to check number primality /
+\ function to check number primality \
 fun isPrime(number) {
     if( number < 2) {
         return false;
