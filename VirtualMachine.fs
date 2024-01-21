@@ -93,10 +93,11 @@ let RunProgram (state:State) =
                     | Instruction.ADD -> false, ( + )
                     | Instruction.MUL -> false, ( * )
                     | Instruction.DIV -> true , ( / )
-                let registerArg = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 0) 4 (System.BitConverter.ToInt32)
+                let registerArg1 = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 0) 4 (System.BitConverter.ToInt32)
+                let registerArg2 = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
                 let registerAcc = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
                 
-                ApplyBinary state operation registerArg registerAcc registerAcc
+                ApplyBinary state operation registerArg2 registerArg1 registerAcc
                 Loop {
                     state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 4
                                 Registers = state.Registers 
@@ -121,10 +122,11 @@ let RunProgram (state:State) =
                     | Instruction.RHS -> false, (>>>) 
                     | Instruction.LHS -> false, (<<<)
 
-                let registerArg = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 0) 4 (System.BitConverter.ToInt32)
+                let registerArg1 = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 0) 4 (System.BitConverter.ToInt32)
+                let registerArg2 = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
                 let registerAcc = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
                 
-                ApplyBinary state operation registerArg registerAcc 7
+                ApplyBinary state operation registerArg1 registerArg2 registerAcc
                 Loop {
                     state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 4
                                 Registers = state.Registers 
@@ -182,7 +184,7 @@ let RunProgram (state:State) =
                     state with  ProgramCounter = programCounter + 1 + 4 + 4
                                 Memory = state.Memory
                 } 
-            | Instruction.STORE -> 
+            | Instruction.LOAD -> 
                 let registerIndex = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 0) 4 (System.BitConverter.ToInt32)
                 let registerTarget = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
                 state.Registers[registerTarget] <- state.Memory[state.Registers[registerIndex]] 

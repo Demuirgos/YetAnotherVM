@@ -73,10 +73,11 @@ let GetMetadata opcode =
     | Instruction.EQ
     | Instruction.LHS
     | Instruction.RHS
+    | Instruction.MOD    -> Metadata.from 3uy
     | Instruction.MOD    -> Metadata.from 2uy
     | Instruction.NOT    -> Metadata.from 1uy
-    | Instruction.NEG    -> Metadata.from 2uy
-    | Instruction.RETURN -> Metadata.from 0uy
+    | Instruction.NEG    -> Metadata.from 1uy
+    | Instruction.RETURN -> Metadata.from 2uy
     | Instruction.STOP   -> Metadata.from 0uy
     | Instruction.JUMP   -> Metadata.from 1uy
     | Instruction.CJUMP  -> Metadata.from 1uy
