@@ -30,8 +30,6 @@ type Instruction =
     | DUP    = 16
     | SWAP   = 17
 
-    | FAIL   = 18
-    
     | NEG    = 19
     | NOT    = 28
     | AND    = 20
@@ -77,14 +75,14 @@ let GetMetadata opcode =
     | Instruction.MOD   -> Metadata.from 2uy 0uy 1uy
     | Instruction.NOT
     | Instruction.NEG   -> Metadata.from 1uy 0uy 1uy
-    | Instruction.RETURN -> Metadata.from 1uy 0uy 0uy
+    | Instruction.RETURN -> Metadata.from 0uy 4uy 0uy
     | Instruction.STOP  -> Metadata.from 0uy 0uy 0uy
     | Instruction.JUMP  -> Metadata.from 0uy 2uy 0uy
     | Instruction.CJUMP -> Metadata.from 1uy 2uy 0uy
     | Instruction.CALL  -> Metadata.from 0uy 2uy 0uy
     | Instruction.RETF  -> Metadata.from 0uy 0uy 0uy
-    | Instruction.STORE -> Metadata.from 0uy 5uy 0uy
-    | Instruction.LOAD  -> Metadata.from 0uy 5uy 1uy
+    | Instruction.STORE -> Metadata.from 1uy 3uy 0uy
+    | Instruction.LOAD  -> Metadata.from 0uy 3uy 1uy
     | Instruction.DUP   -> Metadata.from 1uy 2uy 1uy
     | Instruction.SWAP  -> Metadata.from 1uy 2uy 1uy
     | _ as instr -> printfn "%A" instr; failwith "invalid opcode"
@@ -119,7 +117,6 @@ type BytecodeBuilder() =
     member _.Zero() = { Bytecode = [];  Deferred = [] }
     member _.Yield _ = { Bytecode = [];  Deferred = [] }
 
-
     [<CustomOperation("Signature")>]
     member _.Signature (source: BuilderState, (inputCount:byte, outputCount:byte)) = { source with Bytecode = [inputCount; outputCount]@source.Bytecode }
     [<CustomOperation("Push")>]
@@ -141,7 +138,7 @@ type BytecodeBuilder() =
     [<CustomOperation("Mod")>]
     member _.Mod(source: BuilderState) = { source with Bytecode = source.Bytecode@[07uy] }
     [<CustomOperation("Return")>]
-    member _.Return(source: BuilderState) = { source with Bytecode = source.Bytecode@[08uy] }
+    member _.Return(source: BuilderState, offset:int16, len:int16) = { source with Bytecode = source.Bytecode@[08uy; yield! getBytes(Int16 offset); yield! getBytes(Int16 len)]; }
     [<CustomOperation("Stop")>]
     member _.Stop(source: BuilderState) = { source with Bytecode = source.Bytecode@[09uy] }
     [<CustomOperation("Neg")>]
@@ -172,9 +169,9 @@ type BytecodeBuilder() =
     [<CustomOperation("Swap")>]
     member _.Swap(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[17uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Store")>]
-    member _.Store(source: BuilderState, isDynamic:byte, address: int16, count: int16)= { source with Bytecode = source.Bytecode@[14uy; isDynamic; yield! getBytes(Int16 address); yield! getBytes(Int16 count)]}
+    member _.Store(source: BuilderState, isDynamic:byte, address: int16)= { source with Bytecode = source.Bytecode@[14uy; isDynamic; yield! getBytes(Int16 address)]}
     [<CustomOperation("Load")>]
-    member _.Load(source: BuilderState, isDynamic:byte, address:int16, count:int16)= { source with Bytecode = source.Bytecode@[15uy; isDynamic; yield! getBytes(Int16 address); yield! getBytes(Int16 count)]}
+    member _.Load(source: BuilderState, isDynamic:byte, address:int16)= { source with Bytecode = source.Bytecode@[15uy; isDynamic; yield! getBytes(Int16 address)]}
     [<CustomOperation("Jump")>]
     member _.Jump(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[10uy; yield! getBytes(Int16 argument)]}
     [<CustomOperation("Cjump")>]

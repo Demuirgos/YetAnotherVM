@@ -85,10 +85,10 @@ let RunProgram (state:State) =
                     }
                 | Error(err) -> Error(err)
             | Instruction.RETURN -> 
-                match AssertStackRequirement state 1 with 
-                | Ok _ ->  
-                    Ok <| Some (state.Stack.Head)
-                | Error(err) -> Error(err)
+                let index = ReadImmediate state.Bytecode (state.ProgramCounter + 1) 2 (int << System.BitConverter.ToInt16)
+                let length = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 2) 2 (int << System.BitConverter.ToInt16)
+                let value = ReadImmediate state.Memory index length System.BitConverter.ToInt32
+                Ok <| Some (value)
             | Instruction.ADD    -> 
                 match AssertStackRequirement state 2 with 
                 | Ok _ ->  
@@ -221,7 +221,7 @@ let RunProgram (state:State) =
                 match AssertStackRequirement state (((if isDynamic <> 0 then 1 else 0)) + 1) with 
                 | Ok _ ->  
                     Loop {
-                        state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 1
+                        state with  ProgramCounter = state.ProgramCounter + 1 + 1 + 2 
                                     Stack = stack
                     }
                 | Error(err) -> Error(err) 
@@ -236,17 +236,13 @@ let RunProgram (state:State) =
                             (state.Stack.Head, state.Stack.Tail)
                         else (0, state.Stack)
                     
-                    let value = 
-                        state.Memory
-                        |> Array.skip (targetIndex + offset + (stackFrame * 512))
-                        |> Array.take 4
-                        |> System.BitConverter.ToInt32
+                    let value = ReadImmediate state.Memory (targetIndex + offset + (stackFrame * 512)) 4 System.BitConverter.ToInt32
                     
                     (offset, value::stack)
                 
                 
                 Loop {
-                    state with  ProgramCounter = state.ProgramCounter + 1 + 1 + 4 
+                    state with  ProgramCounter = state.ProgramCounter + 1 + 1 + 2 
                                 Stack = stack
                 }
             | Instruction.DUP -> 

@@ -25,6 +25,8 @@ module Language.Compiler
             if state.CallTable.Count = 0 then 
                 state.CallTable["main"] <- 0
 
+            let returnBufferPrefix : int16 = 4s
+
             let rec Loop instructions acc =
                 match instructions with 
                 | code::rest -> 
@@ -40,11 +42,12 @@ module Language.Compiler
                             | Some expr ->
                                 Build {
                                     Inline ( expr |> handleSection |> _.Bytecode)
-                                    Return
+                                    Store 0uy 0s
+                                    Return 0s returnBufferPrefix
                                 }
                             | _ -> 
                                 Build {
-                                    Return
+                                    Stop
                                 }
                         | Return(exprOpt) when idx <> 0 -> 
                             match exprOpt with 
@@ -57,27 +60,6 @@ module Language.Compiler
                                 Build {
                                     Retf
                                 }
-                        | Halt -> 
-                            Build {
-                                Stop
-                            }
-                        | Throw (error) -> 
-                            let msgBytes = System.Text.Encoding.UTF8.GetBytes(error) 
-                            let errorBytes = 
-                                msgBytes
-                                |> Array.chunkBySize 4
-                                |> Array.rev
-                                |> Array.map (fun chunk ->  [(byte)Instruction.PUSH; yield! chunk; yield! (Array.create (4 - Array.length chunk) 0uy) ])
-                                |> Seq.concat |> Seq.toList
-                            let errorId = sprintf "error%d" state.ErrorCount
-                            state.ErrorCount <- state.ErrorCount + 1
-                            state.SymbolTable[errorId] <- state.MemoryPointer
-                            state.MemoryPointer <- state.MemoryPointer + msgBytes.Length
-                            Build {
-                                Inline errorBytes
-                                Store 0uy (int16 state.SymbolTable[errorId]) (int16 (msgBytes.Length / 4))
-                                Fail (int16 state.SymbolTable[errorId]) (int16 (msgBytes.Length))
-                            }
                         | FunctionDecl(name, args, hasReturnValue, body) as funDec -> 
                             state.CallTable[name] <- state.CallTable.Count
                             Build {
@@ -91,7 +73,7 @@ module Language.Compiler
                                             state.SymbolTable[mangledName] <- state.MemoryPointer
                                             state.MemoryPointer <- state.MemoryPointer + 4
                                             (Build {
-                                                Store 0uy (int16 state.SymbolTable[mangledName]) 1s
+                                                Store 0uy (returnBufferPrefix + int16 state.SymbolTable[mangledName])
                                             }).Bytecode) 
                                         |> List.concat
                                     )
@@ -111,20 +93,28 @@ module Language.Compiler
                             | Some(value) -> 
                                 Build {
                                     Inline (handleSection value |> _.Bytecode)
-                                    Store isDynamic (int16 state.SymbolTable[mangledName]) size
+                                    Inline (
+                                        [
+                                            for offset in 0..int size - 1 do 
+                                                yield Build {
+                                                    Store isDynamic (returnBufferPrefix + int16 state.SymbolTable[mangledName] + 4s * int16 offset)
+                                                } |> _.Bytecode
+                                        ] |> List.concat
+                                    )
+
                                 }
                             | None ->
                                 Build {
                                     Inline (
                                         DefValue 
-                                        |> Array.map (fun _ -> 
+                                        |> Array.mapi (fun offset _ -> 
                                                 Build {
                                                     Push 0
+                                                    Store isDynamic (returnBufferPrefix + int16 state.SymbolTable[mangledName] + 4s * int16 offset)
                                                 } |> _.Bytecode
                                             )
                                         |> List.concat
                                     )
-                                    Store isDynamic (int16 state.SymbolTable[mangledName]) size
                                 } 
                         | WhileStatement(cond, body) -> 
                             let cond = (handleSection cond).Bytecode
@@ -160,12 +150,12 @@ module Language.Compiler
                                     Inline (handleSection indexNode).Bytecode
                                     Push 04
                                     Mul
-                                    Store 1uy (int16 state.SymbolTable[mangledName]) 1s
+                                    Store 1uy (returnBufferPrefix + int16 state.SymbolTable[mangledName]) 
                                 }
                             | None -> 
                                 Build {
                                     Inline ((handleSection value).Bytecode)
-                                    Store 0uy (int16 state.SymbolTable[mangledName]) 1s
+                                    Store 0uy (returnBufferPrefix + int16 state.SymbolTable[mangledName]) 
                                 }
                         | ExpressionNode(expr) -> 
                             match expr with
@@ -176,7 +166,7 @@ module Language.Compiler
                                     Inline indexerBc
                                     Push 04
                                     Mul 
-                                    Load 1uy (int16 state.SymbolTable[mangledName]) 1s
+                                    Load 1uy (returnBufferPrefix + int16 state.SymbolTable[mangledName]) 
                                 }
                             | List(items) -> 
                                 let itemsBc = 
@@ -198,25 +188,13 @@ module Language.Compiler
                             | Variable name -> 
                                 let mangledName = sprintf "%d%s" idx name
                                 Build {
-                                    Load 0uy (int16 state.SymbolTable[mangledName]) 1s
+                                    Load 0uy (returnBufferPrefix + int16 state.SymbolTable[mangledName]) 
                                 }
                             | Call(name, args) -> 
-                                match name with 
-                                |   "read" ->
-                                    Build {
-                                        Read
-                                    }
-                                |   "write" ->
-                                    let h::_ = args
-                                    Build {
-                                        Inline (handleSection h |> _.Bytecode)
-                                        Write
-                                    }
-                                | _ -> 
-                                    Build {
-                                        Inline (args |> List.map (handleSection >> _.Bytecode) |> List.concat)
-                                        Call (int16 state.CallTable[name])
-                                    }
+                                Build {
+                                    Inline (args |> List.map (handleSection >> _.Bytecode) |> List.concat)
+                                    Call (int16 state.CallTable[name])
+                                }
                             | Binary(lhs, op, rhs) -> 
                                 let instruction = 
                                     match op with 

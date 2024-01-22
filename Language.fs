@@ -23,9 +23,7 @@ module Language.Parser
         | ExpressionNode of Expression
         | EffectCall     of Grammar
         | Return         of Grammar option
-        | Throw          of string
         | Comment        of string
-        | Halt
 
     let ParseProgram = 
         let digits = ['0'..'9'] 
@@ -94,7 +92,7 @@ module Language.Parser
              
             (choice poolParser) <?> "Expression" |>>  ExpressionNode 
         and parseInstruction isDeep = 
-            let defaultParser = parseEffectCall <|> parseComment <|> parseThrow <|> parseReturn <|> parseHalt <|> parseVariableAssignment <|> parseVariableDecl <|> parseIfElse <|> parseWhile
+            let defaultParser = parseEffectCall <|> parseComment <|> parseReturn <|> parseVariableAssignment <|> parseVariableDecl <|> parseIfElse <|> parseWhile
             if isDeep then defaultParser 
             else parseFunctionDec <|> defaultParser 
         and parseEffectCall = 
@@ -141,15 +139,6 @@ module Language.Parser
                         .>> pSpaces .>>. separateBy (parseInstruction true) pSpaces
                         .>> pSpaces .>> pRightCurly             
             } <?> "FunDeclStmt" |>> (fun (((keyword, name), argsList), body) -> (fromArrToStr name, List.map fromArrToStr argsList, (fromArrToStr keyword) = "fun", body) |> FunctionDecl)
-        and parseHalt = 
-            Parser {
-                return! allOf (List.ofSeq "halt") .>> expect ';'
-            } <?> "HaltStatement" |>> fun _ -> Halt
-        and parseThrow = 
-            Parser {
-                let parseString = between (expect '"') (many 0 (anyOf chars)) (expect '"')
-                return! allOf (List.ofSeq "throw") >>. pSpaces >>. parseString .>> expect ';'
-            } <?> "ThrowStatement" |>> (fromArrToStr >> Throw)
         and parseReturn = 
             Parser {
                 return! allOf (List.ofSeq "return") >>. pSpaces >>. option (parseExpression true true) .>> expect ';'

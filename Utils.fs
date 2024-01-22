@@ -58,11 +58,7 @@ let BytecodeToMnemonic bytecode =
             let immediateCount = int (Instructions.GetMetadata instruction).ImmediateArgument
             let argument = 
                 (sectionCode |> Seq.skip (idx + 1) |> Seq.take immediateCount |> Seq.rev |> Seq.toArray)
-                |>  if immediateCount = 2 
-                    then System.BitConverter.ToInt16 >> int >> (sprintf "%x")
-                    else if immediateCount = 4 
-                         then System.BitConverter.ToInt32 >> (sprintf "%x")
-                         else fun _ -> System.String.Empty
+                |>  sprintf "%A"
             handleSection sectionCode (idx + 1 + immediateCount) ((sprintf "%A\t%s" instruction argument)::acc)
     let functions = ExtractCodeSections bytecode (fun index inputCount outputCount size ptr code -> 
             index, (inputCount, outputCount), handleSection code 0 []
