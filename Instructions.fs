@@ -27,8 +27,6 @@ type Instruction =
     | STORE  = 16
     | LOAD   = 17
     
-    | FAIL   = 18
-    
     | NEG    = 19
     | NOT    = 20
     
@@ -44,10 +42,6 @@ type Instruction =
 
     | DUP = 31
     | SWAP = 32
-
-
-    | INPUT  = 29
-    | OUTPUT = 30
 
 type Metadata = {
     ImmediateArgument : byte
@@ -72,8 +66,7 @@ let GetMetadata opcode =
     | Instruction.XOR
     | Instruction.EQ
     | Instruction.LHS
-    | Instruction.RHS
-    | Instruction.MOD    -> Metadata.from 3uy
+    | Instruction.RHS    -> Metadata.from 3uy
     | Instruction.MOD    -> Metadata.from 2uy
     | Instruction.NOT    -> Metadata.from 1uy
     | Instruction.NEG    -> Metadata.from 1uy
@@ -85,7 +78,6 @@ let GetMetadata opcode =
     | Instruction.RETF   -> Metadata.from 0uy
     | Instruction.STORE  -> Metadata.from 2uy
     | Instruction.LOAD   -> Metadata.from 2uy
-    | _ as instr -> printfn "%A" instr; failwith "invalid opcode"
 
 
 let Op opcode (arg: int) = 
@@ -119,72 +111,63 @@ type BytecodeBuilder() =
 
 
     [<CustomOperation("Signature")>]
-    member _.Push (source: BuilderState, argument:int32) = { source with Bytecode = source.Bytecode@[00uy; yield! getBytes(Int32 argument)]}
-    [<CustomOperation("Pop")>]
-    member _.Pop(source: BuilderState) = { source with Bytecode = source.Bytecode@[01uy] }
-    [<CustomOperation("Empty")>]
-    member _.Empty (source: BuilderState) = { source with Bytecode = source.Bytecode}
-    [<CustomOperation("Read")>]
-    member _.Read(source: BuilderState) = { source with Bytecode = source.Bytecode@[30uy] }
-    [<CustomOperation("Write")>]
-    member _.Write(source: BuilderState) = { source with  Bytecode = source.Bytecode@[31uy]}
-    [<CustomOperation("Add")>]
-    member _.Add(source: BuilderState) = { source with Bytecode = source.Bytecode@[02uy] }
-    [<CustomOperation("Mul")>]
-    member _.Mul(source: BuilderState) = { source with Bytecode = source.Bytecode@[03uy] }
-    [<CustomOperation("Div")>]
-    member _.Div(source: BuilderState) = { source with Bytecode = source.Bytecode@[04uy] }
-    [<CustomOperation("Sub")>]
-    member _.Sub(source: BuilderState) = { source with Bytecode = source.Bytecode@[05uy] }
-    [<CustomOperation("Exp")>]
-    member _.Exp(source: BuilderState) = { source with Bytecode = source.Bytecode@[06uy] }
-    [<CustomOperation("Mod")>]
-    member _.Mod(source: BuilderState) = { source with Bytecode = source.Bytecode@[07uy] }
-    [<CustomOperation("Return")>]
-    member _.Return(source: BuilderState) = { source with Bytecode = source.Bytecode@[08uy] }
-    [<CustomOperation("Stop")>]
-    member _.Stop(source: BuilderState) = { source with Bytecode = source.Bytecode@[09uy] }
-    [<CustomOperation("Fail")>]
-    member _.Fail(source: BuilderState, idx: int16, len: int16) = { source with  Bytecode = source.Bytecode@[18uy; yield! getBytes(Int16 idx); yield! getBytes(Int16 len) ]}
-    [<CustomOperation("Neg")>]
-    member _.Neg(source: BuilderState) = { source with Bytecode = source.Bytecode@[19uy] }
-    [<CustomOperation("And")>]
-    member _.And(source: BuilderState) = { source with Bytecode = source.Bytecode@[20uy] }
-    [<CustomOperation("Or")>]
-    member _.Or(source: BuilderState) = { source with Bytecode = source.Bytecode@[21uy] }
+    member _.Signature (source: BuilderState, (inputCount:byte, outputCount:byte)) = { source with Bytecode = [inputCount; outputCount]@source.Bytecode }
     
-    [<CustomOperation("Not")>]
-    member _.Not(source: BuilderState) = { source with Bytecode = source.Bytecode@[28uy] }
-
-    [<CustomOperation("Xor")>]
-    member _.Xor(source: BuilderState) = { source with Bytecode = source.Bytecode@[22uy] }
-    [<CustomOperation("Lhs")>]
-    member _.Lhs(source: BuilderState) = { source with Bytecode = source.Bytecode@[23uy] }
-    [<CustomOperation("Rhs")>]
-    member _.Rhs(source: BuilderState) = { source with Bytecode = source.Bytecode@[24uy] }
-    [<CustomOperation("Gt")>]
-    member _.Gt(source: BuilderState) = { source with Bytecode = source.Bytecode@[25uy] }
-    [<CustomOperation("Lt")>]
-    member _.Lt(source: BuilderState) = { source with Bytecode = source.Bytecode@[26uy] }
-    [<CustomOperation("Eq")>]
-    member _.Eq(source: BuilderState) = { source with Bytecode = source.Bytecode@[27uy] }
-
+    [<CustomOperation("Mov")>]
+    member _.Mov(source: BuilderState, register1:int, register2: int) = { source with Bytecode = source.Bytecode@[01uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2)]}
     [<CustomOperation("Dup")>]
-    member _.Dup(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[16uy; yield! getBytes(Int16 argument)]}
+    member _.Dup(source: BuilderState, register1:int, register2: int) = { source with Bytecode = source.Bytecode@[31uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2)]}
     [<CustomOperation("Swap")>]
-    member _.Swap(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[17uy; yield! getBytes(Int16 argument)]}
-    [<CustomOperation("Store")>]
-    member _.Store(source: BuilderState, isDynamic:byte, address: int16, count: int16)= { source with Bytecode = source.Bytecode@[14uy; isDynamic; yield! getBytes(Int16 address); yield! getBytes(Int16 count)]}
-    [<CustomOperation("Load")>]
-    member _.Load(source: BuilderState, isDynamic:byte, address:int16, count:int16)= { source with Bytecode = source.Bytecode@[15uy; isDynamic; yield! getBytes(Int16 address); yield! getBytes(Int16 count)]}
+    member _.Swap(source: BuilderState, register1:int, register2: int) = { source with Bytecode = source.Bytecode@[32uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2)]}
+    [<CustomOperation("Add")>]
+    member _.Add(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[04uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Mul")>]
+    member _.Mul(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[05uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Div")>]
+    member _.Div(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[06uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Sub")>]
+    member _.Sub(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[07uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Exp")>]
+    member _.Exp(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[08uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Gt")>]
+    member _.Gt(source: BuilderState, register1:int, register2: int) = { source with Bytecode = source.Bytecode@[26uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2)]}
+    [<CustomOperation("Lt")>]
+    member _.Lt(source: BuilderState, register1:int, register2: int) = { source with Bytecode = source.Bytecode@[27uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2)]}
+    [<CustomOperation("And")>]
+    member _.And(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[21uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Or")>]
+    member _.Or(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[22uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Xor")>]
+    member _.Xor(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[23uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Eq")>]
+    member _.Eq(source: BuilderState, register1:int, register2: int) = { source with Bytecode = source.Bytecode@[28uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2)]}
+    [<CustomOperation("Lhs")>]
+    member _.Lhs(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[24uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Rhs")>]
+    member _.Rhs(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[25uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Mod")>]
+    member _.Mod(source: BuilderState, register1:int, register2: int) = { source with Bytecode = source.Bytecode@[09uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2)]}
+    [<CustomOperation("Not")>]
+    member _.Not(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[20uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
+    [<CustomOperation("Neg")>]
+    member _.Neg(source: BuilderState, register1:int, register2: int) = { source with Bytecode = source.Bytecode@[19uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2)]}
+    [<CustomOperation("Return")>]
+    member _.Return(source: BuilderState, offset:int, len: int) = { source with Bytecode = source.Bytecode@[10uy; yield! getBytes(Int32 offset); yield! getBytes(Int32 len)]}
+    [<CustomOperation("Stop")>]
+    member _.Stop(source: BuilderState, register1:int, register2: int, register3:int) = { source with Bytecode = source.Bytecode@[11uy; yield! getBytes(Int32 register1); yield! getBytes(Int32 register2); yield! getBytes(Int32 register3)]}
     [<CustomOperation("Jump")>]
-    member _.Jump(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[10uy; yield! getBytes(Int16 argument)]}
+    member _.Jump(source: BuilderState, offset:int) = { source with Bytecode = source.Bytecode@[13uy; yield! getBytes(Int32 offset)]}
     [<CustomOperation("Cjump")>]
-    member _.Cjump(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[11uy; yield! getBytes(Int16 argument)]}
+    member _.Cjump(source: BuilderState, offset:int) = { source with Bytecode = source.Bytecode@[13uy; yield! getBytes(Int32 offset)]}
     [<CustomOperation("Call")>]
-    member _.Call(source: BuilderState, argument: int16)= { source with Bytecode = source.Bytecode@[12uy; yield! getBytes(Int16 argument)]}
+    member _.Call(source: BuilderState, functionId:int) = { source with Bytecode = source.Bytecode@[14uy; yield! getBytes(Int32 functionId)]}
     [<CustomOperation("Retf")>]
-    member _.Retf(source: BuilderState)= { source with Bytecode = source.Bytecode@[13uy]}
+    member _.Retf(source: BuilderState) = { source with Bytecode = source.Bytecode@[15uy]}
+    [<CustomOperation("Store")>]
+    member _.Store(source: BuilderState, targetRegister:int, registerIndex: int) = { source with Bytecode = source.Bytecode@[16uy; yield! getBytes(Int32 targetRegister); yield! getBytes(Int32 registerIndex)]}
+    [<CustomOperation("Load")>]
+    member _.Load(source: BuilderState, registerIndex:int, targetRegister: int) = { source with Bytecode = source.Bytecode@[17uy; yield! getBytes(Int32 registerIndex); yield! getBytes(Int32 targetRegister)]}
+
 
     [<CustomOperation("Inline")>]
     member _.Inline(source: BuilderState, bytecode: byte list)= { source with Bytecode = source.Bytecode@bytecode }

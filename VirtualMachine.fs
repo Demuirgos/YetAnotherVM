@@ -53,6 +53,16 @@ let RunProgram (state:State) =
         else 
             let instruction : Instruction = LanguagePrimitives.EnumOfValue (int <| (Seq.item state.ProgramCounter state.Bytecode)) 
             match instruction with 
+            | Instruction.MOD -> 
+                let registerArg1 = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 0) 4 (System.BitConverter.ToInt32)
+                let registerArg2 = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
+                let operation = ( false , fun a b -> a % b )
+
+                ApplyBinary state operation registerArg2 registerArg1 6
+                Loop {
+                    state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 4
+                                Registers = state.Registers 
+                }
             | Instruction.MOV ->
                 let value = ReadImmediate state.Bytecode (state.ProgramCounter + 1) 4 (System.BitConverter.ToInt32)
                 let register = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
@@ -114,6 +124,21 @@ let RunProgram (state:State) =
                 ApplyBinary state operation registerArg registerAcc 7
                 Loop {
                     state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 4
+                                Registers = state.Registers 
+                }
+            | Instruction.AND | Instruction.OR | Instruction.XOR as opcode ->
+                let (isDiv, op) as operation= 
+                    match opcode with 
+                    | Instruction.AND -> false, fun a b -> a &&& b 
+                    | Instruction.OR -> false, fun a b -> a ||| b
+                    | Instruction.XOR -> false, fun a b -> a ^^^ b
+                let registerArg1 = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 0) 4 (System.BitConverter.ToInt32)
+                let registerArg2 = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 0) 4 (System.BitConverter.ToInt32)
+                let registerTarget = ReadImmediate state.Bytecode (state.ProgramCounter + 1 + 4) 4 (System.BitConverter.ToInt32)
+                
+                ApplyBinary state operation registerArg1 registerArg2 registerTarget
+                Loop {
+                    state with  ProgramCounter = state.ProgramCounter + 1 + 4 + 4 + 4
                                 Registers = state.Registers 
                 }
             | Instruction.LHS | Instruction.RHS as opcode ->
